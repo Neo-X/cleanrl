@@ -401,7 +401,7 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-        
+        #====================== log reward statistics ===================== #
         writer.add_scalar("charts/reward mean", rewards.mean(), global_step)
         writer.add_scalar("charts/reward top 95%", torch.mean(torch.topk(rewards.flatten(), 500)[0]), global_step)
         writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)

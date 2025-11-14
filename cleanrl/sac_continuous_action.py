@@ -23,7 +23,7 @@ class Args:
     """seed of the experiment"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    cuda: bool = True
+    cuda: bool = False
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
@@ -35,7 +35,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "Hopper-v4"
+    env_id: str = "HalfCheetah-v4"
     """the environment id of the task"""
     total_timesteps: int = 1000000
     """total timesteps of the experiments"""
@@ -215,7 +215,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [make_env(args.env_id, seed=args.seed + i, idx=i, capture_video=args.capture_video, run_name=run_name) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
     # ===================== build the reward ===================== #
@@ -240,7 +240,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     #====================== optimality gap computation library ======================#
     import buffer_gap
     eval_envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
+        [make_env(args.env_id, seed=args.seed + i, idx=i, capture_video=args.capture_video, run_name=run_name) for i in range(args.num_envs)]
     )
     gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, actor, device, args, eval_envs)
     #====================== optimality gap computation library ======================#

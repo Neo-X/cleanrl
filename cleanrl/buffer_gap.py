@@ -161,7 +161,6 @@ class BufferGapV2():
                 elif t == (max_t - 1): ## If the code makes it to here then no episode finished early
                     returns.extend(returns_)
                     break
-            # print("COde shoud not get here")
         # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
         return np.mean(returns)
 

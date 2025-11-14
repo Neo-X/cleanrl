@@ -73,6 +73,25 @@ class Args:
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
 
+    intrinsic_rewards: str = "RND"
+    """Whether to use intrinsic rewards"""
+    top_return_buff_percentage: int = 0.95
+    """The top percent of the buffer for computing the optimality gap"""
+    return_buffer_size: int = 1000
+    """the replay memory buffer size"""
+    log_dir: str = False
+    """The directory to save the logs"""
+    job_id : int = 0
+    """The job id for the slurm job"""
+    intrinsic_reward_scale: float = 1.0
+    """The scale of the intrinsic reward"""
+    num_layers: int = 1
+    """The number of layers in the neural network"""
+    num_units: int = 128
+    """The number of units in the neural network"""
+    use_layer_norm: bool = True
+    """Whether to use layer normalization"""
+
 
 class RecordEpisodeStatistics(gym.Wrapper):
     def __init__(self, env, deque_size=100):
@@ -136,11 +155,30 @@ class QNetwork(nn.Module):
 
     def forward(self, x):
         return self.network(x / 255.0)
+    
+    def get_action_deterministic(self, x):
+        q_values = self.forward(x)
+        actions = torch.argmax(q_values, dim=1)
+        return actions
 
 
 def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
     slope = (end_e - start_e) / duration
     return max(slope * t + start_e, end_e)
+
+def make_env(env_id, seed, idx, capture_video, run_name):
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        import buffer_gap
+        env = buffer_gap.RecordEpisodeStatisticsV2(env)
+        env.action_space.seed(seed)
+
+        return env
+    return thunk
 
 
 if __name__ == "__main__":
@@ -189,9 +227,22 @@ if __name__ == "__main__":
     envs.single_observation_space = envs.observation_space
     envs = RecordEpisodeStatistics(envs)
     assert isinstance(envs.action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    # ===================== build the reward ===================== #
+    if args.intrinsic_rewards:
+        klass = globals()[args.intrinsic_rewards]
+        irs = klass(envs=envs, device=device, beta=args.intrinsic_reward_scale)
+    # ===================== build the reward ===================== #
 
     q_network = QNetwork(envs).to(device)
     optimizer = optim.RAdam(q_network.parameters(), lr=args.learning_rate)
+
+    #====================== optimality gap computation library ======================#
+    import buffer_gap
+    eval_envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
+    )
+    gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, agent, device, args, eval_envs)
+    #====================== optimality gap computation library ======================#
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -233,6 +284,12 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, next_done, info = envs.step(action.cpu().numpy())
+            # ===================== watch the interaction ===================== #
+            if args.intrinsic_rewards:
+                irs.watch(observations=obs[step], actions=actions[step], 
+                      rewards=rewards[step], terminateds=dones[step], 
+                      truncateds=dones[step], next_observations=next_obs)
+            # ===================== watch the interaction ===================== #
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
 
@@ -243,6 +300,24 @@ if __name__ == "__main__":
                     writer.add_scalar("charts/avg_episodic_return", np.average(avg_returns), global_step)
                     writer.add_scalar("charts/episodic_return", info["r"][idx], global_step)
                     writer.add_scalar("charts/episodic_length", info["l"][idx], global_step)
+                    #====================== optimality gap computation logging ======================#
+                    gap_stats.add(info["episode"])
+                    gap_stats.plot_gap(writer, global_step)
+                    #====================== optimality gap computation logging ======================#
+
+                # ===================== compute the intrinsic rewards ===================== #
+        # get real next observations
+        if args.intrinsic_rewards:
+            real_next_obs = obs.clone()
+            real_next_obs[:-1] = obs[1:]
+            real_next_obs[-1] = next_obs
+
+            intrinsic_rewards = irs.compute(samples=dict(observations=obs, actions=actions, 
+                                                        rewards=rewards, terminateds=dones,
+                                                        truncateds=dones, next_observations=real_next_obs
+                                                        ))
+            rewards += intrinsic_rewards
+        # ===================== compute the intrinsic rewards ===================== #
 
         # Compute Q(lambda) targets
         with torch.no_grad():
@@ -286,6 +361,11 @@ if __name__ == "__main__":
         writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+        if args.intrinsic_rewards:
+            ## Here we iterate over the irs.metrics disctionary
+            for key, value in irs.metrics.items():
+                writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
+                irs.metrics[key] = []
 
     envs.close()
     writer.close()

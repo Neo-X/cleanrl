@@ -150,8 +150,6 @@ class QNetwork(nn.Module):
                 nn.Linear(512, env.single_action_space.n),
             )
             
-                
-
     def forward(self, x):
         return self.network(x / 255.0)
     
@@ -164,7 +162,6 @@ class QNetwork(nn.Module):
 def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
     slope = (end_e - start_e) / duration
     return max(slope * t + start_e, end_e)
-
 
 if __name__ == "__main__":
     import stable_baselines3 as sb3

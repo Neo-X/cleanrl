@@ -18,8 +18,9 @@ https://github.com/Neo-X/MinAtar
 And for the intrinsic rewards
 
 ```
-pip install rllte-core 
+pip install git@github.com:Neo-X/rllte.git 
 ```
+I did some edits to help with image formating and size, logging, etc.
 
 Reinstall the cleanrl environment to fix some package versions.
 

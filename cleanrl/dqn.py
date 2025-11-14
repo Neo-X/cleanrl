@@ -75,7 +75,7 @@ class Args:
     """timestep to start learning"""
     train_frequency: int = 10
     """the frequency of training"""
-    intrinsic_rewards: str = False
+    intrinsic_rewards: str = "RND"
     """Whether to use intrinsic rewards"""
     top_return_buff_percentage: int = 0.05
     """The top percent of the buffer for computing the optimality gap"""
@@ -196,6 +196,7 @@ if __name__ == "__main__":
 
     # ===================== build the reward ===================== #
     if args.intrinsic_rewards:
+        from rllte.xplore.reward import RND, E3B
         klass = globals()[args.intrinsic_rewards]
         irs = klass(envs=envs, device=device, encoder_model="flat", obs_norm_type="none", beta=args.intrinsic_reward_scale)
     # ===================== build the reward ===================== #

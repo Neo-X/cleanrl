@@ -13,11 +13,6 @@ import torch.optim as optim
 import tyro
 from torch.utils.tensorboard import SummaryWriter
 
-# ===================== load the reward module ===================== #
-import sys
-sys.path.append("../")
-from rllte.xplore.reward import RND, E3B
-# ===================== load the reward module ===================== #
 import buffer_gap
 
 @dataclass
@@ -28,7 +23,7 @@ class Args:
     """seed of the experiment"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    cuda: bool = True
+    cuda: bool = False
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
@@ -40,7 +35,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "CartPole-v1"
+    env_id: str = "MinAtar/Breakout-v0"
     """the id of the environment"""
     total_timesteps: int = 500000
     """total timesteps of the experiments"""
@@ -69,7 +64,7 @@ class Args:
     q_lambda: float = 0.65
     """the lambda for Q(lambda)"""
     """the number of iterations (computed in runtime)"""
-    intrinsic_rewards: str = False
+    intrinsic_rewards: str = "RND"
     """Whether to use intrinsic rewards"""
     top_return_buff_percentage: int = 0.95
     """The top percent of the buffer for computing the optimality gap"""
@@ -182,12 +177,13 @@ if __name__ == "__main__":
         [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
-
     # ===================== build the reward ===================== #
     if args.intrinsic_rewards:
+        from rllte.xplore.reward import RND, E3B
         klass = globals()[args.intrinsic_rewards]
         irs = klass(envs=envs, device=device, encoder_model="flat", obs_norm_type="none", beta=args.intrinsic_reward_scale)
     # ===================== build the reward ===================== #
+
     # agent setup
     q_network = QNetwork(envs).to(device)
     optimizer = optim.RAdam(q_network.parameters(), lr=args.learning_rate)

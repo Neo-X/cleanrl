@@ -1,12 +1,10 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/pqn/#pqn_atari_envpoolpy
+# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/pqn/#pqnpy
 import os
 import random
 import time
-from collections import deque
 from dataclasses import dataclass
 
-import envpool
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,6 +13,7 @@ import torch.optim as optim
 import tyro
 from torch.utils.tensorboard import SummaryWriter
 
+import buffer_gap
 
 @dataclass
 class Args:
@@ -36,44 +35,36 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "Breakout-v5"
+    env_id: str = "SpaceInvadersNoFrameskip-v4"
     """the id of the environment"""
-    total_timesteps: int = 10000000
+    total_timesteps: int = 500000
     """total timesteps of the experiments"""
     learning_rate: float = 2.5e-4
     """the learning rate of the optimizer"""
-    num_envs: int = 8
+    num_envs: int = 4
     """the number of parallel game environments"""
     num_steps: int = 128
-    """the number of steps to run in each environment per policy rollout"""
-    anneal_lr: bool = True
-    """Toggle learning rate annealing for policy and value networks"""
-    gamma: float = 0.99
-    """the discount factor gamma"""
+    """the number of steps to run for each environment per update"""
     num_minibatches: int = 4
     """the number of mini-batches"""
     update_epochs: int = 4
     """the K epochs to update the policy"""
-    max_grad_norm: float = 10.0
-    """the maximum norm for the gradient clipping"""
+    anneal_lr: bool = True
+    """Toggle learning rate annealing"""
+    gamma: float = 0.99
+    """the discount factor gamma"""
     start_e: float = 1
     """the starting epsilon for exploration"""
-    end_e: float = 0.01
+    end_e: float = 0.05
     """the ending epsilon for exploration"""
-    exploration_fraction: float = 0.10
+    exploration_fraction: float = 0.5
     """the fraction of `total_timesteps` it takes from start_e to end_e"""
+    max_grad_norm: float = 10.0
+    """the maximum norm for the gradient clipping"""
     q_lambda: float = 0.65
-    """the lambda for the Q-Learning algorithm"""
-
-    # to be filled in runtime
-    batch_size: int = 0
-    """the batch size (computed in runtime)"""
-    minibatch_size: int = 0
-    """the mini-batch size (computed in runtime)"""
-    num_iterations: int = 0
+    """the lambda for Q(lambda)"""
     """the number of iterations (computed in runtime)"""
-
-    intrinsic_rewards: str = False
+    intrinsic_rewards: str = "RND"
     """Whether to use intrinsic rewards"""
     top_return_buff_percentage: int = 0.95
     """The top percent of the buffer for computing the optimality gap"""
@@ -91,82 +82,16 @@ class Args:
     """The number of units in the neural network"""
     use_layer_norm: bool = True
     """Whether to use layer normalization"""
+    network_type: bool = False
+    """Whether to use ResNet18 as the network architecture"""
 
-
-class RecordEpisodeStatistics(gym.Wrapper):
-    def __init__(self, env, deque_size=100):
-        super().__init__(env)
-        self.num_envs = getattr(env, "num_envs", 1)
-        self.episode_returns = None
-        self.episode_lengths = None
-
-    def reset(self, **kwargs):
-        observations = super().reset(**kwargs)
-        self.episode_returns = np.zeros(self.num_envs, dtype=np.float32)
-        self.episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
-        self.lives = np.zeros(self.num_envs, dtype=np.int32)
-        self.returned_episode_returns = np.zeros(self.num_envs, dtype=np.float32)
-        self.returned_episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
-        return observations
-
-    def step(self, action):
-        observations, rewards, dones, infos = super().step(action)
-        self.episode_returns += infos["reward"]
-        self.episode_lengths += 1
-        self.returned_episode_returns[:] = self.episode_returns
-        self.returned_episode_lengths[:] = self.episode_lengths
-        self.episode_returns *= 1 - infos["terminated"]
-        self.episode_lengths *= 1 - infos["terminated"]
-        infos["r"] = self.returned_episode_returns
-        infos["l"] = self.returned_episode_lengths
-        return (
-            observations,
-            rewards,
-            dones,
-            infos,
-        )
-
-
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
-
-
-class QNetwork(nn.Module):
-    def __init__(self, env):
-        super().__init__()
-        self.network = nn.Sequential(
-            layer_init(nn.Conv2d(4, 32, 8, stride=4)),
-            nn.LayerNorm([32, 20, 20]),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(32, 64, 4, stride=2)),
-            nn.LayerNorm([64, 9, 9]),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(64, 64, 3, stride=1)),
-            nn.LayerNorm([64, 7, 7]),
-            nn.ReLU(),
-            nn.Flatten(),
-            layer_init(nn.Linear(3136, 512)),
-            nn.LayerNorm(512),
-            nn.ReLU(),
-            layer_init(nn.Linear(512, env.single_action_space.n)),
-        )
-
-    def forward(self, x):
-        return self.network(x / 255.0)
-    
-    def get_action_deterministic(self, x):
-        q_values = self.forward(x)
-        actions = torch.argmax(q_values, dim=1)
-        return actions
-
-
-def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
-    slope = (end_e - start_e) / duration
-    return max(slope * t + start_e, end_e)
 
 def make_env(env_id, seed, idx, capture_video, run_name):
+    from stable_baselines3.common.atari_wrappers import (
+    ClipRewardEnv,
+    FireResetEnv,
+    MaxAndSkipEnv,
+)
     def thunk():
         if capture_video and idx == 0:
             env = gym.make(env_id, render_mode="rgb_array")
@@ -177,8 +102,67 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         env = buffer_gap.RecordEpisodeStatisticsV2(env)
         env.action_space.seed(seed)
 
+                # env = NoopResetEnv(env, noop_max=30)
+        env = MaxAndSkipEnv(env, skip=4)
+        # env = EpisodicLifeEnv(env)
+        if "FIRE" in env.unwrapped.get_action_meanings():
+            env = FireResetEnv(env)
+        env = ClipRewardEnv(env)
+        env = gym.wrappers.ResizeObservation(env, (84, 84))
+        env = gym.wrappers.GrayScaleObservation(env)
+        env = gym.wrappers.FrameStack(env, 4)
+
         return env
+
     return thunk
+
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+# ALGO LOGIC: initialize agent here:
+class QNetwork(nn.Module):
+    def __init__(self, env):
+        super().__init__()
+
+        if args.network_type:
+            from resnet import ResNet18
+            print("Using ResNet18")
+            self.network_ = ResNet18(num_classes=512)
+            self.head = nn.Linear(512, env.single_action_space.n)   
+            self.network = nn.Sequential(
+                self.network_,
+                self.head,
+            )
+        else:
+            self.network = nn.Sequential(
+                nn.Conv2d(4, 32, 8, stride=4),
+                nn.ReLU(),
+                nn.Conv2d(32, 64, 4, stride=2),
+                nn.ReLU(),
+                nn.Conv2d(64, 64, 3, stride=1),
+                nn.ReLU(),
+                nn.Flatten(),
+                nn.Linear(3136, 512),
+                nn.ReLU(),
+                nn.Linear(512, env.single_action_space.n),
+            )
+
+    def forward(self, x):
+        return self.network(x)
+    
+    def get_action_deterministic(self, x):
+        q_values = self.forward(x)
+        actions = torch.argmax(q_values, dim=1)
+        return actions
+
+
+def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
+    slope = (end_e - start_e) / duration
+    return max(slope * t + start_e, end_e)
 
 
 if __name__ == "__main__":
@@ -214,51 +198,40 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # env setup
-    envs = envpool.make(
-        args.env_id,
-        env_type="gym",
-        num_envs=args.num_envs,
-        episodic_life=True,
-        reward_clip=True,
-        seed=args.seed,
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
-    envs.num_envs = args.num_envs
-    envs.single_action_space = envs.action_space
-    envs.single_observation_space = envs.observation_space
-    import buffer_gap
-    # env = buffer_gap.RecordEpisodeStatisticsV2(env)
-    envs = buffer_gap.RecordEpisodeStatisticsV2(envs)
-    assert isinstance(envs.action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
     # ===================== build the reward ===================== #
     if args.intrinsic_rewards:
         from rllte.xplore.reward import RND, E3B
         klass = globals()[args.intrinsic_rewards]
-        irs = klass(envs=envs, device=device, beta=args.intrinsic_reward_scale)
+        irs = klass(envs=envs, device=device, encoder_model="flat", obs_norm_type="none", beta=args.intrinsic_reward_scale)
     # ===================== build the reward ===================== #
 
+    # agent setup
     q_network = QNetwork(envs).to(device)
     optimizer = optim.RAdam(q_network.parameters(), lr=args.learning_rate)
 
     #====================== optimality gap computation library ======================#
-    # import buffer_gap
-    # eval_envs = gym.vector.SyncVectorEnv(
-    #     [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
-    # )
-    # gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, agent, device, args, eval_envs)
+    eval_envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+    )
+    gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, q_network, device, args, eval_envs)
     #====================== optimality gap computation library ======================#
 
-    # ALGO Logic: Storage setup
+    # storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    avg_returns = deque(maxlen=20)
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
-    next_obs = torch.Tensor(envs.reset()).to(device)
+    next_obs, _ = envs.reset(seed=args.seed)
+    next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
@@ -274,7 +247,6 @@ if __name__ == "__main__":
             dones[step] = next_done
 
             epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
-
             random_actions = torch.randint(0, envs.single_action_space.n, (args.num_envs,)).to(device)
             with torch.no_grad():
                 q_values = q_network(next_obs)
@@ -286,29 +258,31 @@ if __name__ == "__main__":
             actions[step] = action
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, reward, next_done, info = envs.step(action.cpu().numpy())
+            next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
+
             # ===================== watch the interaction ===================== #
             if args.intrinsic_rewards:
                 irs.watch(observations=obs[step], actions=actions[step], 
                       rewards=rewards[step], terminateds=dones[step], 
                       truncateds=dones[step], next_observations=next_obs)
             # ===================== watch the interaction ===================== #
+
+            next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
 
-            for idx, d in enumerate(next_done):
-                if d and info["lives"][idx] == 0:
-                    print(f"global_step={global_step}, episodic_return={info['r'][idx]}")
-                    avg_returns.append(info["r"][idx])
-                    writer.add_scalar("charts/avg_episodic_return", np.average(avg_returns), global_step)
-                    writer.add_scalar("charts/episodic_return", info["r"][idx], global_step)
-                    writer.add_scalar("charts/episodic_length", info["l"][idx], global_step)
-                    #====================== optimality gap computation logging ======================#
-                    gap_stats.add(info["episode"])
-                    gap_stats.plot_gap(writer, global_step)
-                    #====================== optimality gap computation logging ======================#
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                        #====================== optimality gap computation logging ======================#
+                        gap_stats.add(info["episode"])
+                        gap_stats.plot_gap(writer, global_step)
+                        #====================== optimality gap computation logging ======================#
 
-                # ===================== compute the intrinsic rewards ===================== #
+        # ===================== compute the intrinsic rewards ===================== #
         # get real next observations
         if args.intrinsic_rewards:
             real_next_obs = obs.clone()
@@ -321,7 +295,6 @@ if __name__ == "__main__":
                                                         ))
             rewards += intrinsic_rewards
         # ===================== compute the intrinsic rewards ===================== #
-
         # Compute Q(lambda) targets
         with torch.no_grad():
             returns = torch.zeros_like(rewards).to(device)
@@ -364,6 +337,11 @@ if __name__ == "__main__":
         writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+        #====================== log reward statistics ===================== #
+        writer.add_scalar("charts/reward mean", rewards.mean(), global_step)
+        writer.add_scalar("charts/reward top 95%", torch.mean(torch.topk(rewards.flatten(), 500)[0]), global_step)
+        writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)
+        writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
         if args.intrinsic_rewards:
             ## Here we iterate over the irs.metrics disctionary
             for key, value in irs.metrics.items():

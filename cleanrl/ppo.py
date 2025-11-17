@@ -84,7 +84,7 @@ class Args:
     """the number of iterations (computed in runtime)"""
     intrinsic_rewards: str = False
     """Whether to use intrinsic rewards"""
-    top_return_buff_percentage: int = 0.95
+    top_return_buff_percentage: int = 0.05
     """The top percent of the buffer for computing the optimality gap"""
     return_buffer_size: int = 1000
     """the replay memory buffer size"""

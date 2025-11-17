@@ -49,7 +49,7 @@ done
 
 ## Atari RL envs
 strings=(
-    "MontezumaRevengeNoFrameskip-v4"
+    # "MontezumaRevengeNoFrameskip-v4"
     # "AsterixNoFrameskip-v4"
     # "SpaceInvadersNoFrameskip-v4"
     # "PitfallNoFrameskip-v4"

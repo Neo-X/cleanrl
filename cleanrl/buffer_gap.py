@@ -61,8 +61,8 @@ class BufferGapV2():
         
         self._max_return = -100000
     ## max_returns is a list of the top 10 episodic returns
-        self._max_returns = []
-        self._max_return_buff_size = buffer_size * (top_buffer_percet)
+        self._top_k_plans = []
+        self._max_return_buff_size = int(buffer_size * (top_buffer_percet))
         self._top_buffer_percet = top_buffer_percet
         ## returns is a deque of the last 100 episodic returns
         self._returns = collections.deque(maxlen=buffer_size)
@@ -81,24 +81,27 @@ class BufferGapV2():
     def add(self, info):
         return_ = info.get("r")
         self._returns.append(return_)
+        plan = info.get("actions")
     
+        ## Store the best trajectory
         if return_ > self._max_return:
             self._max_return = return_
-            ## Store the best trajectory
             self._best_traj = info["actions"]
-        
-        if len(self._max_returns) == 0:
-            ## If this is the first return jsut story that return
-            self._max_returns = [return_]
-            # heapq.heapify(max_returns)
-        if len(self._max_returns) > 0 and return_ > min(self._max_returns):
-            ## Repalce the minimum value in max_returns with the new episodic return if the buffer is full
-            if (len(self._max_returns) < self._max_return_buff_size ):
-                ## If the buffer is not full, just append the new episodic return
-                self._max_returns.append(return_)
-                heapq.heapify(self._max_returns)
-            else:
-                heapq.heapreplace(self._max_returns, return_)
+     
+        # The element to be stored in the heap is a tuple: (return, plan)
+        new_heap_item = (return_, plan)
+
+        current_heap_size = len(self._top_k_plans)
+
+        if current_heap_size < self._max_return_buff_size:
+            # If the buffer is not full, just push the new item onto the heap
+            heapq.heappush(self._top_k_plans, new_heap_item)
+        # Check if the new return is greater than the smallest return in the heap
+        # The smallest return is the 0th element's 0th index: self._top_k_plans[0][0]
+        elif return_ > self._top_k_plans[0][0]:
+            # The buffer is full and the new return is better than the smallest return
+            # Use heapreplace to pop the smallest (return, plan) and push the new one
+            heapq.heappushpop(self._top_k_plans, new_heap_item)
 
 
     def plot_gap(self, writer, step: int):
@@ -107,10 +110,11 @@ class BufferGapV2():
         """
         returns_ = list(self._returns)
         heapq.heapify(returns_)
+        _max_returns = [ret for ret, plan in self._top_k_plans] ## Extract the returns from the (return, plan) tuples
         writer.add_scalar("charts/best_trajectory_return", self._max_return, step)
-        writer.add_scalar("charts/avg_top_returns_global", np.mean(list(self._max_returns)), step)
+        writer.add_scalar("charts/avg_top_returns_global", np.mean(list(_max_returns)), step)
         writer.add_scalar("charts/avg_top_returns_local", np.mean(heapq.nlargest(max(int(self._top_buffer_percet * len(returns_)), 1), returns_)), step)
-        writer.add_scalar("charts/global_optimality_gap", np.mean(list(self._max_returns)) - np.mean(returns_), step)
+        writer.add_scalar("charts/global_optimality_gap", np.mean(list(_max_returns)) - np.mean(returns_), step)
         writer.add_scalar("charts/local_optimality_gap", np.mean(heapq.nlargest(max(int(self._top_buffer_percet * len(returns_)), 1), returns_)) - np.mean(returns_), step)
         
         ## Get performance for the deterministic policy
@@ -120,6 +124,9 @@ class BufferGapV2():
             writer.add_scalar("charts/deterministic_returns", np.mean(returns), step)
             returns = self.eval_deterministic(best=True)
             writer.add_scalar("charts/replay_best_returns", np.mean(returns), step)
+            returns = self.eval_stochastic()
+            writer.add_scalar("charts/replay_top_k_returns_stochastic", np.mean(returns), step)
+            print(f"Stochastic Eval Return: {np.mean(returns)} at step {step}")
 
 
     def eval_deterministic(self, best=False) -> np.ndarray:
@@ -164,12 +171,44 @@ class BufferGapV2():
         # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
         return np.mean(returns)
 
-        # TRY NOT TO MODIFY: execute the game and log data.
-        # next_obs, rewards, terminations, truncations, infos = self._envs.step(actions)
-        # return_ += rewards
-        # infos["return"] = return_
-
-        
+    def eval_stochastic(self) -> np.ndarray:
+        """
+        Evaluate the stored action trajectories to get an estimate of their returns
+        """
+        # obs, _ = self._envs.reset(seed=self._args.seed)
+        returns = []
+        samples_ = 10
+        for j in range(samples_):
+            obs, _ = self._envs.reset(seed=self._args.seed)
+            returns_ = np.zeros(self._envs.num_envs, dtype=np.float32)
+            plan = self._top_k_plans[np.random.randint(0, len(self._top_k_plans))][1] ## Sample a plan from the top k plans
+            max_t = len(plan)
+            for t in range(max_t):
+                
+                actions = [plan[t] for _ in range(self._envs.num_envs)] 
+                
+                obs, reward, terminations, truncations, infos = self._envs.step(actions)
+                ## At the end of an episode the info disctionary has other junk in it.
+                if "final_info" in infos: ## This final info logic is not very clear
+                    for info in infos["final_info"]:
+                        if info and "episode" in info:
+                            returns.extend(info['episode']['r'])
+                            break
+                    break 
+                            # pass
+                else:
+                    returns_ += infos['reward']
+                # Check if the episode is done
+                if terminations.any() or truncations.any():
+                    dones = np.logical_or(terminations, truncations)
+                    returns.extend(np.where(dones, returns_, 0.0))
+                    break
+                elif t == (max_t - 1): ## If the code makes it to here then no episode finished early
+                    returns.extend(returns_)
+                    break
+        # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
+        return np.mean(returns)
+       
 
 """Wrapper that tracks the cumulative rewards and episode lengths."""
 import time

@@ -167,6 +167,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
             name=run_name,
             monitor_gym=True,
             save_code=True,
+            dir="/network/scratch/g/glen.berseth/"
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(

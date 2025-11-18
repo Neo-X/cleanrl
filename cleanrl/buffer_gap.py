@@ -81,7 +81,7 @@ class BufferGapV2():
     def add(self, info):
         return_ = info.get("r")
         self._returns.append(return_)
-        plan = info.get("actions")
+        plan = list(info.get("actions"))
     
         ## Store the best trajectory
         if return_ > self._max_return:

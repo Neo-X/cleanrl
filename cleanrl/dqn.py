@@ -33,6 +33,8 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
+    plot_freq: int = 1000
+    """The frequency of plotting"""
     wandb_project_name: str = "cleanRL"
     """the wandb's project name"""
     wandb_entity: str = None
@@ -173,9 +175,9 @@ if __name__ == "__main__":
             dir=args.log_dir+f"wandb/{run_name}"
         )
     if args.log_dir:
-        writer = SummaryWriter(args.log_dir+f"runs/{run_name}")    
+        writer = SummaryWriter(args.log_dir+f"runs/{run_name}", max_queue=1000)    
     else:
-        writer = SummaryWriter(f"runs/{run_name}")
+        writer = SummaryWriter(f"runs/{run_name}", max_queue=1000)
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
@@ -251,13 +253,14 @@ if __name__ == "__main__":
         if "final_info" in infos:
             for info in infos["final_info"]:
                 if info and "episode" in info:
-                    print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                    writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                    writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-                    #====================== optimality gap computation logging ======================#
                     gap_stats.add(info["episode"])
-                    gap_stats.plot_gap(writer, global_step)
-                    #====================== optimality gap computation logging ======================#
+                    if global_step % args.plot_freq == 0:
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                        #====================== optimality gap computation logging ======================#
+                        gap_stats.plot_gap(writer, global_step)
+                        #====================== optimality gap computation logging ======================#
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
@@ -291,10 +294,10 @@ if __name__ == "__main__":
                 old_val = q_network(data.observations * 1.0).gather(1, data.actions).squeeze()
                 loss = F.mse_loss(td_target, old_val)
 
-                if global_step % 100 == 0:
+                if global_step % args.plot_freq == 0:
                     writer.add_scalar("losses/td_loss", loss, global_step)
                     writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
-                    print("SPS:", int(global_step / (time.time() - start_time)))
+                    # print("SPS:", int(global_step / (time.time() - start_time)))
                     writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
                     data_ = rb.sample(10000)
                     if global_step % 1000 == 0 and data_.rewards.shape[0] >= 10000:

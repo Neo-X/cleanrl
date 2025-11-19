@@ -32,6 +32,8 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
+    plot_freq: int = 100
+    """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
     wandb_entity: str = None
@@ -100,7 +102,6 @@ class Args:
     """The number of units in the neural network"""
     use_layer_norm: bool = True
     """Whether to use layer normalization"""
-
 
 def make_env(env_id, idx, capture_video, run_name):
     def thunk():
@@ -196,9 +197,9 @@ if __name__ == "__main__":
             dir=args.log_dir+f"wandb/{run_name}"
         )
     if args.log_dir:
-        writer = SummaryWriter(args.log_dir+f"runs/{run_name}")    
+        writer = SummaryWriter(args.log_dir+f"runs/{run_name}", max_queue=1000)    
     else:
-        writer = SummaryWriter(f"runs/{run_name}")
+        writer = SummaryWriter(f"runs/{run_name}", max_queue=1000)
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
@@ -286,13 +287,14 @@ if __name__ == "__main__":
             if "final_info" in infos:
                 for info in infos["final_info"]:
                     if info and "episode" in info:
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-                        #====================== optimality gap computation logging ======================#
                         gap_stats.add(info["episode"])
-                        gap_stats.plot_gap(writer, global_step)
-                        #====================== optimality gap computation logging ======================#
+                        if iteration % args.plot_freq == 0:
+                            print(f"global_step={global_step}, episodic_return={info['episode']['r']}, iteration={iteration}")
+                            writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                            writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                            #====================== optimality gap computation logging ======================#
+                            gap_stats.plot_gap(writer, global_step)
+                            #====================== optimality gap computation logging ======================#
 
 
         # ===================== compute the intrinsic rewards ===================== #
@@ -391,26 +393,27 @@ if __name__ == "__main__":
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
-        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
-        writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
-        writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
-        writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
-        writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
-        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
-        writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
-        writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        print("SPS:", int(global_step / (time.time() - start_time)))
-        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-        #====================== log reward statistics ===================== #
-        writer.add_scalar("charts/reward mean", rewards.mean(), global_step)
-        writer.add_scalar("charts/reward top 95%", torch.mean(torch.topk(rewards.flatten(), 500)[0]), global_step)
-        writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)
-        writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
-        if args.intrinsic_rewards:
-            ## Here we iterate over the irs.metrics disctionary
-            for key, value in irs.metrics.items():
-                writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
-                irs.metrics[key] = []
+        if iteration % args.plot_freq == 0:
+            writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+            writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+            writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+            writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+            writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
+            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+            writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+            writer.add_scalar("losses/explained_variance", explained_var, global_step)
+            # print("SPS:", int(global_step / (time.time() - start_time)))
+            writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+            #====================== log reward statistics ===================== #
+            writer.add_scalar("charts/reward mean", rewards.mean(), global_step)
+            writer.add_scalar("charts/reward top 95%", torch.mean(torch.topk(rewards.flatten(), 500)[0]), global_step)
+            writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)
+            writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
+            if args.intrinsic_rewards:
+                ## Here we iterate over the irs.metrics disctionary
+                for key, value in irs.metrics.items():
+                    writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
+                    irs.metrics[key] = []
 
 
     envs.close()

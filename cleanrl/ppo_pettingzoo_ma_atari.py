@@ -133,7 +133,7 @@ if __name__ == "__main__":
             save_code=True,
             dir="/network/scratch/g/glen.berseth/"
         )
-    writer = SummaryWriter(f"runs/{run_name}")
+    writer = SummaryWriter(f"runs/{run_name}", max_queue=1000)
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),

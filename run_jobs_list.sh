@@ -5,21 +5,21 @@
 strings=(
     "MinAtar/SpaceInvaders-v0"
     "MinAtar/Asterix-v0"
-    "MinAtar/Breakout-v0"
-    "MinAtar/Seaquest-v0"
-    "MinAtar/Freeway-v0"
+    # "MinAtar/Breakout-v0"
+    # "MinAtar/Seaquest-v0"
+    # "MinAtar/Freeway-v0"
     "LunarLander-v2"
 )
 for env in "${strings[@]}"; do
 #     # echo "$env"
 ### Standard experiments
-    sbatch --array=5-10 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,ARGSS='--total_timesteps 25000000 --intrinsic_reward_scale=0.2' launch.sh
-    sbatch --array=5-10 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' launch.sh
-    sbatch --array=1-10 --export=ALL,ALG='cleanrl/pqn.py',ENV_ID=$env,ARGSS='--total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --intrinsic_reward_scale=0.2' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/pqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' launch.sh
 ### with intrinsic rewards
-    sbatch --array=5-10 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,INTRINSIC_REWARDS='--intrinsic_rewards RND',ARGSS='--total_timesteps 25000000 --intrinsic_reward_scale=0.2' launch.sh
-    sbatch --array=5-10 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,INTRINSIC_REWARDS='--intrinsic_rewards E3B',ARGSS='--total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' launch.sh
-    sbatch --array=5-10 --export=ALL,ALG='cleanrl/pqn.py',ENV_ID=$env,INTRINSIC_REWARDS='--intrinsic_rewards E3B',ARGSS='--total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/pqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' launch.sh
 
 ### Network scaling experiments with 16 or more layers
 #     sbatch --array=1-4 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,ARGSS='--num_layers=16 --total_timesteps 10000000 ' launch.sh

@@ -2,7 +2,7 @@
 ## Run with sbatch --array=1-3 launch.sh --export=algorithm='dqn',envID='MinAtar/SpaceInvaders-v0'
 
 #SBATCH --partition=long-cpu                             # Ask for unkillable job
-#SBATCH --cpus-per-task=4                               # Ask for 2 CPUs
+#SBATCH --cpus-per-task=8                               # Ask for 2 CPUs
 #SBATCH --ntasks-per-node=1                            # Ask for 2 tasks per Node (good for CPU nodes)
 #SBATCH --mem=32G                                        # Ask for 10 GB of RAM
 #SBATCH --time=11:55:00                                   # The job will run for 3 hours

@@ -128,7 +128,7 @@ class Agent(nn.Module):
         super().__init__()
 
         layers = [
-                    nn.Flatten(),
+                  nn.Flatten(),
                   layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), args.num_units)),
                   nn.Tanh()]
         for i in range(args.num_layers-1):

@@ -74,6 +74,25 @@ class Args:
     target_entropy_scale: float = 0.89
     """coefficient for scaling the autotune entropy target"""
 
+    intrinsic_rewards: str = False
+    """Whether to use intrinsic rewards"""
+    top_return_buff_percentage: int = 0.05
+    """The top percent of the buffer for computing the optimality gap"""
+    return_buffer_size: int = 1000
+    """the replay memory buffer size"""
+    log_dir: str = False
+    """The directory to save the logs"""
+    job_id : int = 0
+    """The job id for the slurm job"""
+    intrinsic_reward_scale: float = 1.0
+    """The scale of the intrinsic reward"""
+    num_layers: int = 1
+    """The number of layers in the neural network"""
+    num_units: int = 64
+    """The number of units in the neural network"""
+    use_layer_norm: bool = False
+    """Whether to use layer normalization"""
+
 
 def make_env(env_id, seed, idx, capture_video, run_name):
     def thunk():
@@ -82,11 +101,12 @@ def make_env(env_id, seed, idx, capture_video, run_name):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.RecordEpisodeStatistics(env)
+        import buffer_gap
+        env = buffer_gap.RecordEpisodeStatisticsV2(env)
 
-        env = NoopResetEnv(env, noop_max=30)
+        # env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
-        env = EpisodicLifeEnv(env)
+        # env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)
         env = ClipRewardEnv(env)
@@ -170,6 +190,12 @@ class Actor(nn.Module):
         action_probs = policy_dist.probs
         log_prob = F.log_softmax(logits, dim=1)
         return action, log_prob, action_probs
+    
+    def get_action_deterministic(self, x):
+        x = self(x / 255.0)
+        q_values = self.forward(x)
+        actions = torch.argmax(q_values, dim=1)
+        return actions
 
 
 if __name__ == "__main__":
@@ -215,6 +241,13 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed, 0, args.capture_video, run_name)])
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
+    # ===================== build the reward ===================== #
+    if args.intrinsic_rewards:
+        from rllte.xplore.reward import RND, E3B
+        klass = globals()[args.intrinsic_rewards]
+        irs = klass(envs=envs, device=device, beta=args.intrinsic_reward_scale)
+    # ===================== build the reward ===================== #
+
     actor = Actor(envs).to(device)
     qf1 = SoftQNetwork(envs).to(device)
     qf2 = SoftQNetwork(envs).to(device)
@@ -225,6 +258,14 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     # TRY NOT TO MODIFY: eps=1e-4 increases numerical stability
     q_optimizer = optim.Adam(list(qf1.parameters()) + list(qf2.parameters()), lr=args.q_lr, eps=1e-4)
     actor_optimizer = optim.Adam(list(actor.parameters()), lr=args.policy_lr, eps=1e-4)
+
+    #====================== optimality gap computation library ======================#
+    import buffer_gap
+    eval_envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, args.seed, 0, args.capture_video, run_name)]
+    )
+    gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, actor, device, args, eval_envs)
+    #====================== optimality gap computation library ======================#
 
     # Automatic entropy tuning
     if args.autotune:
@@ -256,6 +297,12 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
 
         # TRY NOT TO MODIFY: execute the game and log data.
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
+        # ===================== watch the interaction ===================== #
+        if args.intrinsic_rewards:
+            irs.watch(observations=obs, actions=actions, 
+                    rewards=rewards, terminateds=terminations, 
+                    truncateds=truncations, next_observations=next_obs)
+        # ===================== watch the interaction ===================== #
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
@@ -263,10 +310,15 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 # Skip the envs that are not done
                 if "episode" not in info:
                     continue
-                print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-                break
+                gap_stats.add(info["episode"])
+                if global_step % args.plot_freq == 0:
+                    print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                    writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                    writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                    #====================== optimality gap computation logging ======================#
+                    gap_stats.plot_gap(writer, global_step)
+                    #====================== optimality gap computation logging ======================#
+                    break
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
@@ -280,6 +332,16 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
 
         # ALGO LOGIC: training.
         if global_step > args.learning_starts:
+            # ===================== compute the intrinsic rewards ===================== #
+            # get real next observations
+            if args.intrinsic_rewards:
+                
+                intrinsic_rewards = irs.compute(samples=dict(observations=data.observations*1.0, actions=data.actions, 
+                                                            rewards=data.rewards, terminateds=data.dones,
+                                                            truncateds=data.dones, next_observations=data.next_observations*1.0
+                                                            ))
+                data.rewards += intrinsic_rewards
+            # ===================== compute the intrinsic rewards ===================== #
             if global_step % args.update_frequency == 0:
                 data = rb.sample(args.batch_size)
                 # CRITIC training
@@ -349,6 +411,16 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
                 if args.autotune:
                     writer.add_scalar("losses/alpha_loss", alpha_loss.item(), global_step)
+                data_ = rb.sample(10000)
+                if global_step % 1000 == 0 and data_.rewards.shape[0] >= 10000:
+                    writer.add_scalar("charts/rewards mean", data_.rewards.mean(), global_step)
+                    writer.add_scalar("charts/rewards top 95%", torch.mean(torch.topk(data_.rewards.flatten(), 500)[0]), global_step)
+                    # writer.add_scalar("charts/returns top 95%", torch.mean(torch.topk(data_.returns.flatten(), 500)[0]), global_step)
+                if args.intrinsic_rewards:
+                    ## Here we iterate over the irs.metrics disctionary
+                    for key, value in irs.metrics.items():
+                        writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
+                        irs.metrics[key] = []
 
     envs.close()
     writer.close()

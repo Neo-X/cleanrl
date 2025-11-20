@@ -37,9 +37,9 @@ class Args:
     """if toggled, this experiment will be tracked with Weights and Biases"""
     plot_freq: int = 100
     """The frequency of plotting"""
-    wandb_project_name: str = "cleanRL"
+    wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
-    wandb_entity: str = None
+    wandb_entity: str = "real-lab"
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
@@ -192,7 +192,7 @@ class Actor(nn.Module):
         return action, log_prob, action_probs
     
     def get_action_deterministic(self, x):
-        x = self(x / 255.0)
+        x = x / 255.0
         q_values = self.forward(x)
         actions = torch.argmax(q_values, dim=1)
         return actions
@@ -407,7 +407,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 writer.add_scalar("losses/qf_loss", qf_loss.item() / 2.0, global_step)
                 writer.add_scalar("losses/actor_loss", actor_loss.item(), global_step)
                 writer.add_scalar("losses/alpha", alpha, global_step)
-                print("SPS:", int(global_step / (time.time() - start_time)))
+                # print("SPS:", int(global_step / (time.time() - start_time)))
                 writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
                 if args.autotune:
                     writer.add_scalar("losses/alpha_loss", alpha_loss.item(), global_step)

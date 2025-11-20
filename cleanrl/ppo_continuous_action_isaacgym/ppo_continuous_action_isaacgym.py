@@ -58,9 +58,9 @@ class Args:
     """if toggled, this experiment will be tracked with Weights and Biases"""
     plot_freq: int = 100
     """The frequency of plotting"""
-    wandb_project_name: str = "cleanRL"
+    wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
-    wandb_entity: str = None
+    wandb_entity: str = "real-lab"
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""

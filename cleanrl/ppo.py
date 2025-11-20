@@ -36,7 +36,7 @@ class Args:
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
-    wandb_entity: str = None
+    wandb_entity: str = "real-lab"
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""

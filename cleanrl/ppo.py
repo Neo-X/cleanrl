@@ -28,7 +28,7 @@ class Args:
     """seed of the experiment"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    cuda: bool = True
+    cuda: bool = False
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
@@ -86,7 +86,7 @@ class Args:
     """the number of iterations (computed in runtime)"""
     intrinsic_rewards: str = False
     """Whether to use intrinsic rewards"""
-    top_return_buff_percentage: int = 0.05
+    top_return_buff_percentage: float = 0.05
     """The top percent of the buffer for computing the optimality gap"""
     return_buffer_size: int = 1000
     """the replay memory buffer size"""

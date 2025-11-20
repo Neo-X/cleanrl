@@ -85,7 +85,7 @@ class Args:
     """the frequency of training"""
     intrinsic_rewards: str = False
     """Whether to use intrinsic rewards"""
-    top_return_buff_percentage: int = 0.05
+    top_return_buff_percentage: float = 0.05
     """The top percent of the buffer for computing the optimality gap"""
     return_buffer_size: int = 1000
     """The size of the return buffer for computing the optimality gap"""

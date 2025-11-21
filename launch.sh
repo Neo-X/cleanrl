@@ -15,4 +15,4 @@ echo $ALG
 echo $ENV_ID
 echo $ARGSS
 
-python $ALG --seed $SLURM_ARRAY_TASK_ID --env-id $ENV_ID --wandb-project-name sub-optimality --log_dir /network/scratch/g/glen.berseth/ --job_id $SLURM_JOB_ID $ARGSS
+python $ALG --seed $SLURM_ARRAY_TASK_ID --env-id $ENV_ID --track --wandb-project-name sub-optimality --log_dir /network/scratch/g/glen.berseth/ --job_id $SLURM_JOB_ID $ARGSS

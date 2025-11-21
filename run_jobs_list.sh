@@ -3,8 +3,8 @@
 
 ## Discrete RL Envs
 strings=(
-    "MinAtar/SpaceInvaders-v0"
-    "MinAtar/Asterix-v0"
+    # "MinAtar/SpaceInvaders-v0"
+    # "MinAtar/Asterix-v0"
     # "MinAtar/Breakout-v0"
     # "MinAtar/Seaquest-v0"
     # "MinAtar/Freeway-v0"

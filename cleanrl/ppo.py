@@ -42,7 +42,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    plot_freq: int = 100
+    plot_freq: int = 10
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
@@ -52,7 +52,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "MinAtar/Breakout-v0"
+    env_id: str = "MinAtar/Asterix-v0"
     """the id of the environment"""
     total_timesteps: int = 10000000
     """total timesteps of the experiments"""
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
-    last_iteration = 0
+    last_global_step = global_step - args.plot_freq * 10000
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
@@ -299,7 +299,8 @@ if __name__ == "__main__":
                 for info in infos["final_info"]:
                     if info and "episode" in info:
                         gap_stats.add(info["episode"])
-                        if iteration % args.plot_freq == 0:
+                        if global_step - last_global_step >= (args.plot_freq * 10000):
+                            last_global_step = global_step
                             print(f"global_step={global_step}, episodic_return={info['episode']['r']}, iteration={iteration}")
                             writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                             writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
@@ -419,7 +420,8 @@ if __name__ == "__main__":
             writer.add_scalar("charts/reward mean", rewards.mean(), global_step)
             writer.add_scalar("charts/reward top 95%", torch.mean(torch.topk(rewards.flatten(), 500)[0]), global_step)
             writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)
-            writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
+            # if torch.mean(torch.std(rewards, dim=0)) > 0:
+            #     writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
             if args.intrinsic_rewards:
                 ## Here we iterate over the irs.metrics disctionary
                 for key, value in irs.metrics.items():

@@ -18,7 +18,7 @@ def evaluate(
     exploration_noise: float = 0.1,
     seed=1,
 ):
-    envs = gym.vector.SyncVectorEnv([make_env(env_id, 0, 0, capture_video, run_name)])
+    envs = buffer_gap.SyncVectorEnvV2([make_env(env_id, 0, 0, capture_video, run_name)])
     obs, _ = envs.reset()
 
     Actor, QNetwork = Model

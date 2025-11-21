@@ -21,13 +21,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from stable_baselines3.common.atari_wrappers import (
-    ClipRewardEnv,
-    EpisodicLifeEnv,
-    FireResetEnv,
-    MaxAndSkipEnv,
-    NoopResetEnv,
-)
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
@@ -41,11 +34,11 @@ class Args:
     """seed of the experiment"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    cuda: bool = True
+    cuda: bool = False
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    plot_freq: int = 100
+    plot_freq: int = 1000
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
@@ -55,7 +48,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "BeamRiderNoFrameskip-v4"
+    env_id: str = "MinAtar/Breakout-v0"
     """the id of the environment"""
     total_timesteps: int = 5000000
     """total timesteps of the experiments"""
@@ -113,18 +106,6 @@ def make_env(env_id, seed, idx, capture_video, run_name):
             env = gym.make(env_id)
         import buffer_gap
         env = buffer_gap.RecordEpisodeStatisticsV2(env)
-
-        # env = NoopResetEnv(env, noop_max=30)
-        env = MaxAndSkipEnv(env, skip=4)
-        # env = EpisodicLifeEnv(env)
-        if "FIRE" in env.unwrapped.get_action_meanings():
-            env = FireResetEnv(env)
-        env = ClipRewardEnv(env)
-        env = gym.wrappers.ResizeObservation(env, (84, 84))
-        env = gym.wrappers.GrayScaleObservation(env)
-        env = gym.wrappers.FrameStack(env, 4)
-
-        env.action_space.seed(seed)
         return env
 
     return thunk
@@ -144,20 +125,24 @@ class SoftQNetwork(nn.Module):
     def __init__(self, envs):
         super().__init__()
         obs_shape = envs.single_observation_space.shape
-        self.conv = nn.Sequential(
-            layer_init(nn.Conv2d(obs_shape[0], 32, kernel_size=8, stride=4)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(32, 64, kernel_size=4, stride=2)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(64, 64, kernel_size=3, stride=1)),
+        layers = [
             nn.Flatten(),
-        )
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), args.num_units)),
+            nn.ReLU()]
+        
+        for i in range(args.num_layers-1):
+            layers.append(layer_init(nn.Linear(args.num_units, args.num_units)))
+            layers.append(nn.ReLU())
+            if args.use_layer_norm:
+                layers.append(nn.LayerNorm(args.num_units))
+
+        self.conv = nn.Sequential(*layers)
 
         with torch.inference_mode():
             output_dim = self.conv(torch.zeros(1, *obs_shape)).shape[1]
 
-        self.fc1 = layer_init(nn.Linear(output_dim, 512))
-        self.fc_q = layer_init(nn.Linear(512, envs.single_action_space.n))
+        self.fc1 = layer_init(nn.Linear(output_dim, 64))
+        self.fc_q = layer_init(nn.Linear(64, envs.single_action_space.n))
 
     def forward(self, x):
         x = F.relu(self.conv(x / 255.0))
@@ -170,20 +155,24 @@ class Actor(nn.Module):
     def __init__(self, envs):
         super().__init__()
         obs_shape = envs.single_observation_space.shape
-        self.conv = nn.Sequential(
-            layer_init(nn.Conv2d(obs_shape[0], 32, kernel_size=8, stride=4)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(32, 64, kernel_size=4, stride=2)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(64, 64, kernel_size=3, stride=1)),
+        layers = [
             nn.Flatten(),
-        )
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), args.num_units)),
+            nn.ReLU()]
+        
+        for i in range(args.num_layers-1):
+            layers.append(layer_init(nn.Linear(args.num_units, args.num_units)))
+            layers.append(nn.ReLU())
+            if args.use_layer_norm:
+                layers.append(nn.LayerNorm(args.num_units))
+
+        self.conv = nn.Sequential(*layers)
 
         with torch.inference_mode():
             output_dim = self.conv(torch.zeros(1, *obs_shape)).shape[1]
 
-        self.fc1 = layer_init(nn.Linear(output_dim, 512))
-        self.fc_logits = layer_init(nn.Linear(512, envs.single_action_space.n))
+        self.fc1 = layer_init(nn.Linear(output_dim, 64))
+        self.fc_logits = layer_init(nn.Linear(64, envs.single_action_space.n))
 
     def forward(self, x):
         x = F.relu(self.conv(x))
@@ -297,6 +286,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
 
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
+    last_log_step = 0
     for global_step in range(args.total_timesteps):
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
@@ -321,7 +311,8 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 if "episode" not in info:
                     continue
                 gap_stats.add(info["episode"])
-                if global_step % args.plot_freq == 0:
+                if global_step - last_log_step > args.plot_freq:
+                    last_log_step = global_step
                     print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                     writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                     writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
@@ -409,7 +400,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 for param, target_param in zip(qf2.parameters(), qf2_target.parameters()):
                     target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
 
-            if global_step % 100 == 0:
+            if global_step % args.plot_freq == 0:
                 writer.add_scalar("losses/qf1_values", qf1_a_values.mean().item(), global_step)
                 writer.add_scalar("losses/qf2_values", qf2_a_values.mean().item(), global_step)
                 writer.add_scalar("losses/qf1_loss", qf1_loss.item(), global_step)

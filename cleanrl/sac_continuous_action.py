@@ -1,5 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/sac/#sac_continuous_actionpy
 import os
+# Limit threads for OpenBLAS
+os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+# Limit threads for MKL
+os.environ["MKL_NUM_THREADS"] = "1"
+# Limit threads for OpenMP (a common standard for parallel programming)
+os.environ["OMP_NUM_THREADS"] = "1"
+# Limit threads for VecLib (another potential backend)
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+# Limit threads for NumExpr (if used for expression evaluation)
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import random
 import time
 from dataclasses import dataclass
@@ -27,7 +37,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    plot_freq: int = 100
+    plot_freq: int = 10000
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
@@ -37,7 +47,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "HalfCheetah-v4"
+    env_id: str = "Humanoid-v4"
     """the environment id of the task"""
     total_timesteps: int = 1000000
     """total timesteps of the experiments"""
@@ -217,7 +227,8 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # env setup
-    envs = gym.vector.SyncVectorEnv(
+    import buffer_gap
+    envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, seed=args.seed + i, idx=i, capture_video=args.capture_video, run_name=run_name) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
@@ -242,7 +253,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
 
     #====================== optimality gap computation library ======================#
     import buffer_gap
-    eval_envs = gym.vector.SyncVectorEnv(
+    eval_envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, seed=args.seed + i, idx=i, capture_video=args.capture_video, run_name=run_name) for i in range(args.num_envs)]
     )
     gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, actor, device, args, eval_envs)
@@ -270,6 +281,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
 
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
+    last_global_step_plot = 0
     for global_step in range(args.total_timesteps):
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
@@ -292,7 +304,8 @@ poetry run pip install "stable_baselines3==2.0.0a1"
             for info in infos["final_info"]:
                 if info is not None:
                     gap_stats.add(info["episode"])
-                    if global_step % args.plot_freq == 0:
+                    if global_step - last_global_step_plot >= args.plot_freq:
+                        last_global_step_plot = global_step
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)

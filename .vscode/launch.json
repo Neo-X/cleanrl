@@ -11,11 +11,10 @@
             "program": "${file}",
             "args": [
                 // "--intrinsic_rewards=RND", 
-                "--log_dir=runs2/glen.berseth/", 
+                "--log_dir=runs/glen.berseth/", 
                 "--job_id=14",
                 // "--num_layers=128"
                 // "--track",
-                "--top_return_buff_percentage=0.20"
             ]
         }
     ]

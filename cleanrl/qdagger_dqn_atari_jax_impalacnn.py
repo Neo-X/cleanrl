@@ -231,7 +231,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     key, q_key = jax.random.split(key, 2)
 
     # env setup
-    envs = gym.vector.SyncVectorEnv(
+    envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
@@ -380,7 +380,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     start_time = time.time()
 
     # TRY NOT TO MODIFY: start the game
-    envs = gym.vector.SyncVectorEnv(
+    envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
     obs, _ = envs.reset(seed=args.seed)

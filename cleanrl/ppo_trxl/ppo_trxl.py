@@ -376,7 +376,7 @@ if __name__ == "__main__":
         device = torch.device("cpu")
 
     # Environment setup
-    envs = gym.vector.SyncVectorEnv(
+    envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)],
     )
     observation_space = envs.single_observation_space

@@ -1,5 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppopy
 import os
+# Limit threads for OpenBLAS
+os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+# Limit threads for MKL
+os.environ["MKL_NUM_THREADS"] = "1"
+# Limit threads for OpenMP (a common standard for parallel programming)
+os.environ["OMP_NUM_THREADS"] = "1"
+# Limit threads for VecLib (another potential backend)
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+# Limit threads for NumExpr (if used for expression evaluation)
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import random
 import time
 from dataclasses import dataclass
@@ -214,7 +224,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # env setup
-    envs = gym.vector.SyncVectorEnv(
+    envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)],
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
@@ -230,7 +240,7 @@ if __name__ == "__main__":
 
     #====================== optimality gap computation library ======================#
     import buffer_gap
-    eval_envs = gym.vector.SyncVectorEnv(
+    eval_envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
     gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, agent, device, args, eval_envs)
@@ -251,6 +261,7 @@ if __name__ == "__main__":
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
+    last_iteration = 0
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:

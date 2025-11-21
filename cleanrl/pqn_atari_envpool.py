@@ -244,7 +244,7 @@ if __name__ == "__main__":
 
     #====================== optimality gap computation library ======================#
     # import buffer_gap
-    # eval_envs = gym.vector.SyncVectorEnv(
+    # eval_envs = buffer_gap.SyncVectorEnvV2(
     #     [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
     # )
     # gap_stats = buffer_gap.BufferGapV2(args.return_buffer_size, args.top_return_buff_percentage, agent, device, args, eval_envs)

@@ -21,7 +21,7 @@ def evaluate(
     capture_video: bool = True,
     seed=1,
 ):
-    envs = gym.vector.SyncVectorEnv([make_env(env_id, 0, 0, capture_video, run_name)])
+    envs = buffer_gap.SyncVectorEnvV2([make_env(env_id, 0, 0, capture_video, run_name)])
     obs, _ = envs.reset()
     model_data = None
     with open(model_path, "rb") as f:

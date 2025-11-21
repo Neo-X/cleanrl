@@ -928,7 +928,7 @@ We use [Pytorch's distributed API](https://pytorch.org/tutorials/intermediate/di
 
     # ...
 
-    envs = gym.vector.SyncVectorEnv(
+    envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"

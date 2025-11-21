@@ -17,6 +17,7 @@ colors = {'$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0) - V^{ \hat{\pi}^{\\theta} }(
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best)': '#A0CBE8',
           '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent)' : "#C36FC3",
           '$V^{ \hat{\pi}^{*} }(s_0)$ (replay)': '#E15759',
+          '$V^{ \hat{\pi}^{*} }(s_0)$ (best replay)': "#651275",
 
           '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w RND': '#666666',
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w RND': '#B6992D',
@@ -24,6 +25,14 @@ colors = {'$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0) - V^{ \hat{\pi}^{\\theta} }(
           '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w ResNet': "#666666",
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w ResNet': "#beaed4",
           '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent) w ResNet': "#ffff99",
+
+          '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w top10': "#666666",
+          '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w top10': "#beaed4",
+          '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent) w top10': "#ffff99",
+
+          '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w top20': "#103C43",
+          '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w top20': '#B6992D',
+          '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent) w top20': '#7fc97f',
           
          }
 linestyle = {'$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0) - V^{ \hat{\pi}^{\\theta} }(s_0)$ (best)': '-',
@@ -38,6 +47,7 @@ linestyle = {'$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0) - V^{ \hat{\pi}^{\\theta}
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best)' : '-',
           '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent)': '-',
           '$V^{ \hat{\pi}^{*} }(s_0)$ (replay)': '--',
+          '$V^{ \hat{\pi}^{*} }(s_0)$ (best replay)': ':',
 
           '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w RND': '--',
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w RND': '--',
@@ -45,6 +55,14 @@ linestyle = {'$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0) - V^{ \hat{\pi}^{\\theta}
           '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w ResNet': '--',
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w ResNet': '--',
           '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent) w ResNet': '--',
+
+          '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w top10': '--',
+          '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w top10': '--',
+          '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent) w top10': '--',
+
+          '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w top20': '-.',
+          '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w top20': '-.',
+          '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent) w top20': '-.',
 
          }
 def plotsns_smoothed(ax, s, df, label, title=None, ylabel=None, res=1):

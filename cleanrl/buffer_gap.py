@@ -367,7 +367,7 @@ class SyncVectorEnvV2(VectorEnv):
 
     Example:
         >>> import gymnasium as gym
-        >>> env = gym.vector.SyncVectorEnv([
+        >>> env = buffer_gap.SyncVectorEnvV2([
         ...     lambda: gym.make("Pendulum-v1", g=9.81),
         ...     lambda: gym.make("Pendulum-v1", g=1.62)
         ... ])
@@ -453,16 +453,16 @@ class SyncVectorEnvV2(VectorEnv):
             The reset observation of the environment and reset information
         """
         if seed is None:
-            seed = [None for _ in range(self.num_envs)]
+            self._seed = [None for _ in range(self.num_envs)]
         if isinstance(seed, int):
-            seed = [seed + i for i in range(self.num_envs)]
-        assert len(seed) == self.num_envs
+            self._seed = [seed + i for i in range(self.num_envs)]
+        assert len(self._seed) == self.num_envs
 
         self._terminateds[:] = False
         self._truncateds[:] = False
         observations = []
         infos = {}
-        for i, (env, single_seed) in enumerate(zip(self.envs, seed)):
+        for i, (env, single_seed) in enumerate(zip(self.envs, self._seed)):
             kwargs = {}
             if single_seed is not None:
                 kwargs["seed"] = single_seed
@@ -501,7 +501,8 @@ class SyncVectorEnvV2(VectorEnv):
             if self._terminateds[i] or self._truncateds[i]:
                 old_observation, old_info = observation, info
                 # env.seed(self._seed)
-                observation, info = env.reset()
+                observation, info = env.reset(seed=self._seed[i])
+                # observation, info = env.reset()
                 info["final_observation"] = old_observation
                 info["final_info"] = old_info
             observations.append(observation)

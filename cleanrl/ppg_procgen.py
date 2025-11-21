@@ -1,5 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppg/#ppg_procgenpy
 import os
+# Limit threads for OpenBLAS
+os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+# Limit threads for MKL
+os.environ["MKL_NUM_THREADS"] = "1"
+# Limit threads for OpenMP (a common standard for parallel programming)
+os.environ["OMP_NUM_THREADS"] = "1"
+# Limit threads for VecLib (another potential backend)
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+# Limit threads for NumExpr (if used for expression evaluation)
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import random
 import time
 from dataclasses import dataclass

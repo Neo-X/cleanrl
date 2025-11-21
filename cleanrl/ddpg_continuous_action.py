@@ -1,5 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ddpg/#ddpg_continuous_actionpy
 import os
+# Limit threads for OpenBLAS
+os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+# Limit threads for MKL
+os.environ["MKL_NUM_THREADS"] = "1"
+# Limit threads for OpenMP (a common standard for parallel programming)
+os.environ["OMP_NUM_THREADS"] = "1"
+# Limit threads for VecLib (another potential backend)
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+# Limit threads for NumExpr (if used for expression evaluation)
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import random
 import time
 from dataclasses import dataclass
@@ -157,7 +167,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # env setup
-    envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed, 0, args.capture_video, run_name)])
+    envs = buffer_gap.SyncVectorEnvV2([make_env(args.env_id, args.seed, 0, args.capture_video, run_name)])
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     actor = Actor(envs).to(device)

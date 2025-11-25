@@ -76,6 +76,7 @@ class BufferGapV2():
         self._last_eval = 0
 
         self._best_traj = []
+        self._best_traj_r = []
 
 
     def add(self, info):
@@ -87,6 +88,7 @@ class BufferGapV2():
         if return_ > self._max_return:
             self._max_return = return_
             self._best_traj = info["actions"]
+            self._best_traj_r = info["rewards"]
      
         # The element to be stored in the heap is a tuple: (return, plan)
         new_heap_item = (return_, plan)
@@ -122,7 +124,7 @@ class BufferGapV2():
             returns = self.eval_deterministic()
             self._last_eval = step
             writer.add_scalar("charts/deterministic_returns", np.mean(returns), step)
-            returns = self.eval_deterministic(best=True)
+            returns = self.eval_deterministic2(best=True)
             writer.add_scalar("charts/replay_best_returns", np.mean(returns), step)
             returns = self.eval_stochastic()
             writer.add_scalar("charts/replay_top_k_returns_stochastic", np.mean(returns), step)
@@ -140,7 +142,7 @@ class BufferGapV2():
         # if best==True: max_t = len(self._best_traj) else: max_t = 1000
         ## Use spec.max_episode_steps to make sure there is a return in the info dict
         max_t = len(self._best_traj) if best==True else self._envs.envs[0].spec.max_episode_steps
-        max_t = 1000 if max_t==None else max_t
+        max_t = 10000 if max_t==None else max_t
         samples_ = 1
         for j in range(samples_):
             # obs, _ = self._envs.reset()
@@ -148,8 +150,10 @@ class BufferGapV2():
             for t in range(max_t):
                 
                 actions = [self._best_traj[t] for _ in range(self._envs.num_envs)] if best==True else self._policy.get_action_deterministic(torch.Tensor(obs).to(self._device)).cpu().numpy()
-                
+
                 obs, reward, terminations, truncations, infos = self._envs.step(actions)
+                if best==True:
+                    print("reawrds: ", reward, self._best_traj_r[t])
                 ## At the end of an episode the info disctionary has other junk in it.
                 if "final_info" in infos: ## This final info logic is not very clear
                     for info in infos["final_info"]:
@@ -170,6 +174,34 @@ class BufferGapV2():
                     break
         # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
         return np.mean(returns)
+    
+    def eval_deterministic2(self, best=False) -> np.ndarray:
+        """
+        Evaluate the policy deterministically
+        """
+        """
+        Evaluate the policy deterministically
+        """
+        obs, _ = self._envs.reset(seed=self._args.seed)
+        # q_values = self._policy(torch.Tensor(obs).to(self._device))
+        
+        max_t = len(self._best_traj) if best==True else self._envs.envs[0].spec.max_episode_steps
+        max_t = 100000 if max_t==None else max_t
+        samples_ = 1
+        for j in range(samples_):
+            # obs, _ = self._envs.reset()
+            # returns_ = np.zeros(self._envs.num_envs, dtype=np.float32)
+            for t in range(max_t):
+                
+                actions = [self._best_traj[t] for _ in range(self._envs.num_envs)] if best==True else self._policy.get_action_deterministic(torch.Tensor(obs).to(self._device)).cpu().numpy()
+
+                obs, reward, terminations, truncations, infos = self._envs.step(actions)
+            
+                if "final_info" in infos:
+                    for info in infos["final_info"]:
+                        if info and "episode" in info:
+                            return info['episode']['r']
+        # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
 
     def eval_stochastic(self) -> np.ndarray:
         """
@@ -277,6 +309,7 @@ class RecordEpisodeStatisticsV2(gym.Wrapper, gym.utils.RecordConstructorArgs):
         self.episode_returns: Optional[np.ndarray] = None
         self.episode_lengths: Optional[np.ndarray] = None
         self.episode_actions = []
+        self.episode_rewards = []
         self.return_queue = deque(maxlen=deque_size)
         self.length_queue = deque(maxlen=deque_size)
         self.is_vector_env = getattr(env, "is_vector_env", False)
@@ -290,6 +323,7 @@ class RecordEpisodeStatisticsV2(gym.Wrapper, gym.utils.RecordConstructorArgs):
         self.episode_returns = np.zeros(self.num_envs, dtype=np.float32)
         self.episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
         self.episode_actions = []
+        self.episode_rewards = []
         # self.episode_actions = np.zeros(self.num_envs, dtype=np.float32)
         return obs, info
 
@@ -308,6 +342,7 @@ class RecordEpisodeStatisticsV2(gym.Wrapper, gym.utils.RecordConstructorArgs):
         self.episode_returns += rewards
         self.episode_lengths += 1
         self.episode_actions.append(action)
+        self.episode_rewards.append(rewards)
         # infos['reward'] = rewards
         dones = np.logical_or(terminations, truncations)
         num_dones = np.sum(dones)
@@ -326,7 +361,9 @@ class RecordEpisodeStatisticsV2(gym.Wrapper, gym.utils.RecordConstructorArgs):
                         0.0,
                         ),
                     "actions": np.where(dones, self.episode_actions, 0) if isinstance(self.env.action_space, gym.spaces.Discrete) else np.where(dones, self.episode_actions, 0),
+                    "rewards": np.where(dones, self.episode_rewards, 0),
                 }
+                # print( infos["episode"])
                 # print("Actions", np.where(dones, self.episode_actions, 0))
                 if self.is_vector_env:
                     infos["_episode"] = np.where(dones, True, False)

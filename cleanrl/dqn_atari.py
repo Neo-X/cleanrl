@@ -49,7 +49,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    plot_freq: int = 100
+    plot_freq: int = 1000
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
@@ -65,7 +65,7 @@ class Args:
     """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
-    env_id: str = "SpaceInvadersNoFrameskip-v4"
+    env_id: str = "ALE/MontezumaRevenge-v5"
     """the id of the environment"""
     total_timesteps: int = 10000000
     """total timesteps of the experiments"""
@@ -112,12 +112,22 @@ class Args:
 def make_env(env_id, seed, idx, capture_video, run_name):
     def thunk():
         if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.make(env_id, render_mode="rgb_array",
+                           repeat_action_probability=0.0, 
+                                frameskip=1, # Use an integer for deterministic frameskip
+                                # noop_max=0, # Disable random no-op resets
+                                full_action_space=False, # Use the smaller, more common action space
+                                # render_mode=None # or "human" if you want to watch)
+                                )
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = gym.make(env_id)
-        import buffer_gap
-        env = buffer_gap.RecordEpisodeStatisticsV2(env)
+            env = gym.make(env_id,
+                           repeat_action_probability=0.0, 
+                                frameskip=1, # Use an integer for deterministic frameskip
+                                # noop_max=0, # Disable random no-op resets
+                                full_action_space=False, # Use the smaller, more common action space
+                                render_mode=None # or "human" if you want to watch)
+                                )
 
         # env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
@@ -128,6 +138,8 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         env = gym.wrappers.ResizeObservation(env, (84, 84))
         env = gym.wrappers.GrayScaleObservation(env)
         env = gym.wrappers.FrameStack(env, 4)
+        import buffer_gap
+        env = buffer_gap.RecordEpisodeStatisticsV2(env)
 
         env.action_space.seed(seed)
         return env
@@ -219,6 +231,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # env setup
+    import buffer_gap
     envs = buffer_gap.SyncVectorEnvV2(
         [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
@@ -254,6 +267,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
 
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
+    last_global_step = 0
     for global_step in range(args.total_timesteps):
         # ALGO LOGIC: put action logic here
         epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
@@ -278,7 +292,8 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
             for info in infos["final_info"]:
                 if info and "episode" in info:
                     gap_stats.add(info["episode"])
-                    if global_step % args.plot_freq == 0:
+                    if global_step - last_global_step >= args.plot_freq*10:
+                        last_global_step = global_step
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
@@ -320,7 +335,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 if global_step % args.plot_freq == 0:
                     writer.add_scalar("losses/td_loss", loss, global_step)
                     writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
-                    print("SPS:", int(global_step / (time.time() - start_time)))
+                    # print("SPS:", int(global_step / (time.time() - start_time)))
                     writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
                     if args.intrinsic_rewards:
                         ## Here we iterate over the irs.metrics disctionary

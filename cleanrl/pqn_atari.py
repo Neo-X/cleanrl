@@ -47,7 +47,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "SpaceInvadersNoFrameskip-v4"
+    env_id: str = "ALE/NameThisGame-v5"
     """the id of the environment"""
     total_timesteps: int = 500000
     """total timesteps of the experiments"""
@@ -109,12 +109,16 @@ def make_env(env_id, seed, idx, capture_video, run_name):
             env = gym.make(env_id, render_mode="rgb_array")
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = gym.make(env_id)
+            env = gym.make(env_id,
+                                repeat_action_probability=0.0, 
+                                frameskip=1, # Use an integer for deterministic frameskip
+                                # noop_max=0, # Disable random no-op resets
+                                full_action_space=False, # Use the smaller, more common action space
+                                render_mode=None # or "human" if you want to watch)
+                            )
         import buffer_gap
-        env = buffer_gap.RecordEpisodeStatisticsV2(env)
-        env.action_space.seed(seed)
 
-                # env = NoopResetEnv(env, noop_max=30)
+        # env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
         # env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
@@ -123,6 +127,8 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         env = gym.wrappers.ResizeObservation(env, (84, 84))
         env = gym.wrappers.GrayScaleObservation(env)
         env = gym.wrappers.FrameStack(env, 4)
+        env = buffer_gap.RecordEpisodeStatisticsV2(env)
+        env.action_space.seed(seed)
 
         return env
 
@@ -247,6 +253,7 @@ if __name__ == "__main__":
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
+    last_global_step = global_step - args.plot_freq * 10000
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
@@ -287,13 +294,15 @@ if __name__ == "__main__":
             if "final_info" in infos:
                 for info in infos["final_info"]:
                     if info and "episode" in info:
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-                        #====================== optimality gap computation logging ======================#
                         gap_stats.add(info["episode"])
-                        gap_stats.plot_gap(writer, global_step)
-                        #====================== optimality gap computation logging ======================#
+                        if global_step - last_global_step >= (args.plot_freq * 10000):
+                            last_global_step = global_step
+                            print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                            writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                            writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                            #====================== optimality gap computation logging ======================#
+                            gap_stats.plot_gap(writer, global_step)
+                            #====================== optimality gap computation logging ======================#
 
         # ===================== compute the intrinsic rewards ===================== #
         # get real next observations
@@ -346,20 +355,21 @@ if __name__ == "__main__":
                 nn.utils.clip_grad_norm_(q_network.parameters(), args.max_grad_norm)
                 optimizer.step()
 
-        writer.add_scalar("losses/td_loss", loss, global_step)
-        writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
-        print("SPS:", int(global_step / (time.time() - start_time)))
-        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-        #====================== log reward statistics ===================== #
-        writer.add_scalar("charts/reward mean", rewards.mean(), global_step)
-        writer.add_scalar("charts/reward top 95%", torch.mean(torch.topk(rewards.flatten(), 500)[0]), global_step)
-        writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)
-        writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
-        if args.intrinsic_rewards:
-            ## Here we iterate over the irs.metrics disctionary
-            for key, value in irs.metrics.items():
-                writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
-                irs.metrics[key] = []
+        if iteration % args.plot_freq == 0:
+            writer.add_scalar("losses/td_loss", loss, global_step)
+            writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
+            print("SPS:", int(global_step / (time.time() - start_time)))
+            writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+            #====================== log reward statistics ===================== #
+            writer.add_scalar("charts/reward mean", rewards.mean(), global_step)
+            # writer.add_scalar("charts/reward top 95%", torch.mean(torch.topk(rewards.flatten(), 500)[0]), global_step)
+            writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)
+            # writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
+            if args.intrinsic_rewards:
+                ## Here we iterate over the irs.metrics disctionary
+                for key, value in irs.metrics.items():
+                    writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
+                    irs.metrics[key] = []
 
     envs.close()
     writer.close()

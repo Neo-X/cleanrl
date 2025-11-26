@@ -1,15 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/pqn/#pqnpy
 import os
 # Limit threads for OpenBLAS
-os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+os.environ["OPENBLAS_NUM_THREADS"] = "4" 
 # Limit threads for MKL
-os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "4"
 # Limit threads for OpenMP (a common standard for parallel programming)
-os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "4"
 # Limit threads for VecLib (another potential backend)
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "4"
 # Limit threads for NumExpr (if used for expression evaluation)
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "4"
 import random
 import time
 from dataclasses import dataclass
@@ -75,8 +75,8 @@ class Args:
     """the maximum norm for the gradient clipping"""
     q_lambda: float = 0.65
     """the lambda for Q(lambda)"""
-    """the number of iterations (computed in runtime)"""
-    intrinsic_rewards: str = "RND"
+
+    intrinsic_rewards: str = False
     """Whether to use intrinsic rewards"""
     top_return_buff_percentage: float = 0.05
     """The top percent of the buffer for computing the optimality gap"""
@@ -92,7 +92,7 @@ class Args:
     """The number of layers in the neural network"""
     num_units: int = 128
     """The number of units in the neural network"""
-    use_layer_norm: bool = True
+    use_layer_norm: bool = False
     """Whether to use layer normalization"""
     network_type: bool = False
     """Whether to use ResNet18 as the network architecture"""

@@ -1,15 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/sac/#sac_ataripy
 import os
 # Limit threads for OpenBLAS
-os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+os.environ["OPENBLAS_NUM_THREADS"] = "4" 
 # Limit threads for MKL
-os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "4"
 # Limit threads for OpenMP (a common standard for parallel programming)
-os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "4"
 # Limit threads for VecLib (another potential backend)
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "4"
 # Limit threads for NumExpr (if used for expression evaluation)
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "4"
 import random
 import time
 from dataclasses import dataclass
@@ -45,7 +45,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    plot_freq: int = 1000
+    plot_freq: int = 10000
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
@@ -337,7 +337,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 if "episode" not in info:
                     continue
                 gap_stats.add(info["episode"])
-                if global_step - last_global_step >= args.plot_freq*10:
+                if global_step - last_global_step >= args.plot_freq*5:
                     last_global_step = global_step
                     print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                     writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)

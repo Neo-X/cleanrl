@@ -237,6 +237,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # env setup
+    import buffer_gap
     envs = buffer_gap.SyncVectorEnvV2([make_env(args.env_id, args.seed, 0, args.capture_video, run_name)])
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
@@ -311,7 +312,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                 if "episode" not in info:
                     continue
                 gap_stats.add(info["episode"])
-                if global_step - last_log_step > args.plot_freq:
+                if (global_step - last_log_step) > args.plot_freq*5:
                     last_log_step = global_step
                     print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                     writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
@@ -393,35 +394,35 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                     a_optimizer.step()
                     alpha = log_alpha.exp().item()
 
+                if global_step % args.plot_freq == 0:
+                    writer.add_scalar("losses/qf1_values", qf1_a_values.mean().item(), global_step)
+                    writer.add_scalar("losses/qf2_values", qf2_a_values.mean().item(), global_step)
+                    writer.add_scalar("losses/qf1_loss", qf1_loss.item(), global_step)
+                    writer.add_scalar("losses/qf2_loss", qf2_loss.item(), global_step)
+                    writer.add_scalar("losses/qf_loss", qf_loss.item() / 2.0, global_step)
+                    writer.add_scalar("losses/actor_loss", actor_loss.item(), global_step)
+                    writer.add_scalar("losses/alpha", alpha, global_step)
+                    # print("SPS:", int(global_step / (time.time() - start_time)))
+                    writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+                    if args.autotune:
+                        writer.add_scalar("losses/alpha_loss", alpha_loss.item(), global_step)
+                    data_ = rb.sample(10000)
+                    if global_step % 1000 == 0 and data_.rewards.shape[0] >= 10000:
+                        writer.add_scalar("charts/rewards mean", data_.rewards.mean(), global_step)
+                        writer.add_scalar("charts/rewards top 95%", torch.mean(torch.topk(data_.rewards.flatten(), 500)[0]), global_step)
+                        # writer.add_scalar("charts/returns top 95%", torch.mean(torch.topk(data_.returns.flatten(), 500)[0]), global_step)
+                    if args.intrinsic_rewards:
+                        ## Here we iterate over the irs.metrics disctionary
+                        for key, value in irs.metrics.items():
+                            writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
+                            irs.metrics[key] = []
+
             # update the target networks
             if global_step % args.target_network_frequency == 0:
                 for param, target_param in zip(qf1.parameters(), qf1_target.parameters()):
                     target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
                 for param, target_param in zip(qf2.parameters(), qf2_target.parameters()):
                     target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
-
-            if global_step % args.plot_freq == 0:
-                writer.add_scalar("losses/qf1_values", qf1_a_values.mean().item(), global_step)
-                writer.add_scalar("losses/qf2_values", qf2_a_values.mean().item(), global_step)
-                writer.add_scalar("losses/qf1_loss", qf1_loss.item(), global_step)
-                writer.add_scalar("losses/qf2_loss", qf2_loss.item(), global_step)
-                writer.add_scalar("losses/qf_loss", qf_loss.item() / 2.0, global_step)
-                writer.add_scalar("losses/actor_loss", actor_loss.item(), global_step)
-                writer.add_scalar("losses/alpha", alpha, global_step)
-                # print("SPS:", int(global_step / (time.time() - start_time)))
-                writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-                if args.autotune:
-                    writer.add_scalar("losses/alpha_loss", alpha_loss.item(), global_step)
-                data_ = rb.sample(10000)
-                if global_step % 1000 == 0 and data_.rewards.shape[0] >= 10000:
-                    writer.add_scalar("charts/rewards mean", data_.rewards.mean(), global_step)
-                    writer.add_scalar("charts/rewards top 95%", torch.mean(torch.topk(data_.rewards.flatten(), 500)[0]), global_step)
-                    # writer.add_scalar("charts/returns top 95%", torch.mean(torch.topk(data_.returns.flatten(), 500)[0]), global_step)
-                if args.intrinsic_rewards:
-                    ## Here we iterate over the irs.metrics disctionary
-                    for key, value in irs.metrics.items():
-                        writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
-                        irs.metrics[key] = []
 
     envs.close()
     writer.close()

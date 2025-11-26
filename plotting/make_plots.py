@@ -17,7 +17,7 @@ colors = {'$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0) - V^{ \hat{\pi}^{\\theta} }(
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best)': '#A0CBE8',
           '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent)' : "#C36FC3",
           '$V^{ \hat{\pi}^{*} }(s_0)$ (replay)': '#E15759',
-          '$V^{ \hat{\pi}^{*} }(s_0)$ (best replay)': "#651275",
+          '$V^{ \hat{\pi}^{*} }(s_0)$ (top replay)': "#651275",
 
           '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w RND': '#666666',
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w RND': '#B6992D',
@@ -47,7 +47,7 @@ linestyle = {'$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0) - V^{ \hat{\pi}^{\\theta}
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best)' : '-',
           '$V^{ \hat{\pi}^{*}_{D} }(s_0)$ (recent)': '-',
           '$V^{ \hat{\pi}^{*} }(s_0)$ (replay)': '--',
-          '$V^{ \hat{\pi}^{*} }(s_0)$ (best replay)': ':',
+          '$V^{ \hat{\pi}^{*} }(s_0)$ (top replay)': ':',
 
           '$V^{ \hat{\pi}^{\\theta} }(s_0)$ (avg) w RND': '--',
           '$V^{ \hat{\pi}^{*}_{ D_{\infty} } }(s_0)$ (best) w RND': '--',
@@ -167,6 +167,52 @@ def get_jobs(df):
             key_ = key.split(' - charts/global_optimality_gap')[0]
             keys.append(key_)
     return keys
+
+def add_plot(ax, df, key, label, res, jobs, color, lw):
+    """
+    Docstring for add_plot
+    
+    :param ax: Description
+    :param df: Description
+    :param key: Description
+    :param label: Description
+    :param res: Description
+    :param jobs: Description
+    :param color: Description
+    :param lw: Description
+    """
+    plot_data = get_data_frame(df, key=key, res=res, jobs=jobs)
+    plot_data = plot_data.rename(columns={0: 'Steps', 1: label})
+    sns.lineplot(data=plot_data, x='Steps', y=label, ax=ax, label=label, c=color, linewidth=lw)
+    ax.lines[-1].set_linestyle(linestyle[label])
+
+def render_plot(ax, title):
+    """
+    Docstring for render_plot
+    
+    :param ax: plot axis
+    :param title: Description
+    """
+
+    ax3.ticklabel_format(axis= 'x', style='sci', scilimits=(0,3))
+    ## Increase fontsize of ticks
+    ax3.tick_params(axis='x', labelsize=14)
+    ax3.tick_params(axis='y', labelsize=14)
+    ax3.set(ylabel='Return')
+    ## increase fontsize of labels
+    ax3.set_ylabel('Return', fontsize=18)
+    ax3.set_title(title, fontsize=20)
+    ax3.set_xlabel('Steps', fontsize=18)
+    ## make the legend more see through
+    ax3.get_legend().get_frame().set_alpha(0.2)
+    ax3.legend(fontsize='16')
+    fig.tight_layout(pad=0.5)
+    #plt.subplots_adjust(bottom=.25, wspace=.25)
+    plt.show()
+    title2 = title.replace(" ","_").replace(".","").replace("/","_")
+    fig.savefig("data/"+title2+".svg")
+    fig.savefig("data/"+title2+".png")
+    fig.savefig("data/"+title2+".pdf")
         
 if __name__ == '__main__':
 

@@ -16,7 +16,7 @@
                 // "--num_layers=128"
                 // "--track",
                 // "--num_envs=1",
-                "--plot_freq=1",
+                "--plot_freq=10",
             ]
         }
     ]

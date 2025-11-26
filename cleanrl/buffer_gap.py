@@ -209,7 +209,7 @@ class BufferGapV2():
         """
         # obs, _ = self._envs.reset(seed=self._args.seed)
         returns = []
-        samples_ = 10
+        samples_ = 5
         for j in range(samples_):
             obs, _ = self._envs.reset(seed=self._args.seed)
             returns_ = np.zeros(self._envs.num_envs, dtype=np.float32)

@@ -81,7 +81,7 @@ class Args:
     """Entropy regularization coefficient."""
     autotune: bool = True
     """automatic tuning of the entropy coefficient"""
-    target_entropy_scale: float = 0.89
+    target_entropy_scale: float = 0.5
     """coefficient for scaling the autotune entropy target"""
 
     intrinsic_rewards: str = False

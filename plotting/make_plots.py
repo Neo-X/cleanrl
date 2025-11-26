@@ -186,7 +186,7 @@ def add_plot(ax, df, key, label, res, jobs, color, lw):
     sns.lineplot(data=plot_data, x='Steps', y=label, ax=ax, label=label, c=color, linewidth=lw)
     ax.lines[-1].set_linestyle(linestyle[label])
 
-def render_plot(ax, title):
+def render_plot(ax3, fig, title):
     """
     Docstring for render_plot
     

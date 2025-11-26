@@ -17,7 +17,7 @@ for env in "${strings[@]}"; do
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2 --top_return_buff_percentage=0.10' launch.sh
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2 --top_return_buff_percentage=0.20' launch.sh
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' --time=02:59:00 --cpus-per-task=8 launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_reward_scale=0.2' --time=02:59:00 --cpus-per-task=8 launch.sh
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --intrinsic_reward_scale=0.2' --time=02:59:00 --cpus-per-task=8 launch.sh
 ### with intrinsic rewards
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' launch.sh
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --intrinsic_rewards RND --intrinsic_reward_scale=0.2 --top_return_buff_percentage=0.10' launch.sh
@@ -53,12 +53,12 @@ done
 
 ## Atari RL envs
 strings=(
-    "ALE/MontezumaRevenge-v5"
+    # "ALE/MontezumaRevenge-v5"
     # "AsterixNoFrameskip-v4"
     # "SpaceInvadersNoFrameskip-v4"
     # "PitfallNoFrameskip-v4"
-    "ALE/BattleZone-v5"
-    "ALE/NameThisGame-v5"
+    # "ALE/BattleZone-v5"
+    # "ALE/NameThisGame-v5"
     # "PhoenixNoFrameskip-v4"
 )
 for env in "${strings[@]}"; do

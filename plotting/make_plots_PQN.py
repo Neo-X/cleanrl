@@ -11,15 +11,17 @@ if __name__ == '__main__':
 
     res = 10
     lw_ = 3
-    titles = ['PQN_on_ALE_BattleZone',
-              'PQN_on_ALE_MontezumaRevenge',
-              'PQN_on_ALE_NameThisGame',
-              'PQN_on_MinAtar_Asterix',
-              'PQN_on_MinAtar_Breakout',
-              'PQN_on_MinAtar_Freeway',
-              'PQN_on_MinAtar_Seaquest',
+    titles = [
+            # 'PQN_on_ALE_BattleZone',
+            #   'PQN_on_ALE_MontezumaRevenge',
+            #   'PQN_on_ALE_NameThisGame',
+            #   'PQN_on_MinAtar_Asterix',
+            #   'PQN_on_MinAtar_Breakout',
+            #   'PQN_on_MinAtar_Freeway',
+            #   'PQN_on_MinAtar_Seaquest',
               'PQN_on_MinAtar_SpaceInvaders',
-              'PQN_on_LunarLander']
+              'PQN_on_LunarLander'
+              ]
     for title in titles:
 
         fig, (ax3) = plt.subplots(1, 1, figsize=(8,4.5))

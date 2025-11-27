@@ -48,7 +48,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "MinAtar/SpaceInvaders-v0"
+    env_id: str = "MinAtar/Asterix-v0"
     """the id of the environment"""
     total_timesteps: int = 5000000
     """total timesteps of the experiments"""
@@ -74,7 +74,7 @@ class Args:
     """Entropy regularization coefficient."""
     autotune: bool = True
     """automatic tuning of the entropy coefficient"""
-    target_entropy_scale: float = 0.5
+    target_entropy_scale: float = 0.5 ## https://github.com/jakegrigsby/super_sac/blob/92398326f04b22ea2a7d3abe2e6a626620dcead5/experiments/minatar/basic_online.gin#L47
     """coefficient for scaling the autotune entropy target"""
 
     intrinsic_rewards: str = False
@@ -145,7 +145,7 @@ class SoftQNetwork(nn.Module):
         self.fc_q = layer_init(nn.Linear(64, envs.single_action_space.n))
 
     def forward(self, x):
-        x = F.relu(self.conv(x / 255.0))
+        x = F.relu(self.conv(x * 1.0))
         x = F.relu(self.fc1(x))
         q_vals = self.fc_q(x)
         return q_vals
@@ -175,14 +175,14 @@ class Actor(nn.Module):
         self.fc_logits = layer_init(nn.Linear(64, envs.single_action_space.n))
 
     def forward(self, x):
-        x = F.relu(self.conv(x))
+        x = F.relu(self.conv(x * 1.0))
         x = F.relu(self.fc1(x))
         logits = self.fc_logits(x)
 
         return logits
 
     def get_action(self, x):
-        logits = self(x / 255.0)
+        logits = self(x)
         policy_dist = Categorical(logits=logits)
         action = policy_dist.sample()
         # Action probabilities for calculating the adapted soft-Q loss
@@ -191,7 +191,6 @@ class Actor(nn.Module):
         return action, log_prob, action_probs
     
     def get_action_deterministic(self, x):
-        x = x / 255.0
         q_values = self.forward(x)
         actions = torch.argmax(q_values, dim=1)
         return actions

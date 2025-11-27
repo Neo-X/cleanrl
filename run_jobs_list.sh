@@ -4,11 +4,11 @@
 ## Discrete RL Envs
 strings=(
     "MinAtar/SpaceInvaders-v0"
-    "MinAtar/Asterix-v0"
     "MinAtar/Breakout-v0"
-    "MinAtar/Seaquest-v0"
-    "MinAtar/Freeway-v0"
-    "LunarLander-v2"
+    # "MinAtar/Asterix-v0"
+    # "MinAtar/Seaquest-v0"
+    # "MinAtar/Freeway-v0"
+    # "LunarLander-v2"
 )
 for env in "${strings[@]}"; do
     echo "$env"
@@ -53,12 +53,12 @@ done
 
 ## Atari RL envs
 strings=(
-    "ALE/MontezumaRevenge-v5"
+    # "ALE/MontezumaRevenge-v5"
     # "AsterixNoFrameskip-v4"
     # "SpaceInvadersNoFrameskip-v4"
     # "PitfallNoFrameskip-v4"
-    "ALE/BattleZone-v5"
-    "ALE/NameThisGame-v5"
+    # "ALE/BattleZone-v5"
+    # "ALE/NameThisGame-v5"
     # "PhoenixNoFrameskip-v4"
 )
 for env in "${strings[@]}"; do

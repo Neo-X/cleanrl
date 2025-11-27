@@ -123,11 +123,15 @@ class BufferGapV2():
         if step - self._last_eval > 10000:
             returns = self.eval_deterministic2()
             self._last_eval = step
-            writer.add_scalar("charts/deterministic_returns", np.mean(returns), step)
+            ## CHeck that the returns is not None
+            if returns is not None:
+                writer.add_scalar("charts/deterministic_returns", np.mean(returns), step)
             returns = self.eval_deterministic2(best=True)
-            writer.add_scalar("charts/replay_best_returns", np.mean(returns), step)
+            if returns is not None:
+                writer.add_scalar("charts/replay_best_returns", np.mean(returns), step)
             returns = self.eval_stochastic()
-            writer.add_scalar("charts/replay_top_k_returns_stochastic", np.mean(returns), step)
+            if returns is not None:
+                writer.add_scalar("charts/replay_top_k_returns_stochastic", np.mean(returns), step)
             print(f"Stochastic Eval Return: {np.mean(returns)} at step {step}")
 
 
@@ -188,7 +192,9 @@ class BufferGapV2():
         max_t = len(self._best_traj) if best==True else self._envs.envs[0].spec.max_episode_steps
         max_t = 100000 if max_t==None else max_t
         samples_ = 1
+        returns = []
         for j in range(samples_):
+            return_ = 0.0
             # obs, _ = self._envs.reset()
             # returns_ = np.zeros(self._envs.num_envs, dtype=np.float32)
             for t in range(max_t):
@@ -196,12 +202,14 @@ class BufferGapV2():
                 actions = [self._best_traj[t] for _ in range(self._envs.num_envs)] if best==True else self._policy.get_action_deterministic(torch.Tensor(obs).to(self._device)).cpu().numpy()
 
                 obs, reward, terminations, truncations, infos = self._envs.step(actions)
-            
+                return_ += reward[0]
                 if "final_info" in infos:
                     for info in infos["final_info"]:
                         if info and "episode" in info:
                             return info['episode']['r']
+            returns.append(return_)
         # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
+        return np.mean(returns)
 
     def eval_stochastic(self) -> np.ndarray:
         """

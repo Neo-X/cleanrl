@@ -48,7 +48,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "MinAtar/Breakout-v0"
+    env_id: str = "MinAtar/SpaceInvaders-v0"
     """the id of the environment"""
     total_timesteps: int = 5000000
     """total timesteps of the experiments"""

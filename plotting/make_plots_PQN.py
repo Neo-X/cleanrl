@@ -11,24 +11,19 @@ if __name__ == '__main__':
 
     res = 10
     lw_ = 3
-    titles = [
-        # 'SAC_on_ALE_BattleZone',
-        #       'SAC_on_ALE_MontezumaRevenge',
-        #       'SAC_on_ALE_NameThisGame',
-        #       'SAC_on_MinAtar_Asterix',
-        #       'SAC_on_MinAtar_Breakout',
-        #       'SAC_on_MinAtar_Freeway',
-        #       'SAC_on_MinAtar_Seaquest',
-              'SAC_on_MinAtar_SpaceInvaders',
-              'SAC_on_LunarLander',
-            'SAC_on_Walker2d-v4',
-            'SAC_on_Humanoid-v4',
-            'SAC_on_HalfCheetah-v4',
-              ]
+    titles = ['PQN_on_ALE_BattleZone',
+              'PQN_on_ALE_MontezumaRevenge',
+              'PQN_on_ALE_NameThisGame',
+              'PQN_on_MinAtar_Asterix',
+              'PQN_on_MinAtar_Breakout',
+              'PQN_on_MinAtar_Freeway',
+              'PQN_on_MinAtar_Seaquest',
+              'PQN_on_MinAtar_SpaceInvaders',
+              'PQN_on_LunarLander']
     for title in titles:
 
         fig, (ax3) = plt.subplots(1, 1, figsize=(8,4.5))
-        # title = 'SAC_on_ALE_BattleZone'
+        # title = 'PQN_on_ALE_BattleZone'
         datadir = './data/'+title+'.csv'
         df = pd.read_csv(datadir)
         ax3.set_title(title)

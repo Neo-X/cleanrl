@@ -121,7 +121,7 @@ class BufferGapV2():
         
         ## Get performance for the deterministic policy
         if step - self._last_eval > 10000:
-            returns = self.eval_deterministic()
+            returns = self.eval_deterministic2()
             self._last_eval = step
             writer.add_scalar("charts/deterministic_returns", np.mean(returns), step)
             returns = self.eval_deterministic2(best=True)

@@ -76,7 +76,7 @@ class Args:
     q_lambda: float = 0.65
     """the lambda for Q(lambda)"""
     """the number of iterations (computed in runtime)"""
-    intrinsic_rewards: str = "RND"
+    intrinsic_rewards: str = False
     """Whether to use intrinsic rewards"""
     top_return_buff_percentage: float = 0.05
     """The top percent of the buffer for computing the optimality gap"""

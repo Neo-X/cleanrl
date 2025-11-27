@@ -245,7 +245,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
     if args.intrinsic_rewards:
         from rllte.xplore.reward import RND, E3B
         klass = globals()[args.intrinsic_rewards]
-        irs = klass(envs=envs, device=device, beta=args.intrinsic_reward_scale)
+        irs = klass(envs=envs, device=device, encoder_model="flat", obs_norm_type="none", beta=args.intrinsic_reward_scale)
     # ===================== build the reward ===================== #
 
     actor = Actor(envs).to(device)
@@ -336,16 +336,22 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
         if global_step > args.learning_starts:
             # ===================== compute the intrinsic rewards ===================== #
             # get real next observations
-            if args.intrinsic_rewards:
+            
                 
-                intrinsic_rewards = irs.compute(samples=dict(observations=data.observations*1.0, actions=data.actions, 
-                                                            rewards=data.rewards, terminateds=data.dones,
-                                                            truncateds=data.dones, next_observations=data.next_observations*1.0
-                                                            ))
-                data.rewards += intrinsic_rewards
+                
             # ===================== compute the intrinsic rewards ===================== #
             if global_step % args.update_frequency == 0:
-                data = rb.sample(args.batch_size)
+                data = rb.sample(args.batch_size)            
+                rewards_ = data.rewards
+                # ===================== compute the intrinsic rewards ===================== #
+                # get real next observations
+                if args.intrinsic_rewards:
+                    
+                    intrinsic_rewards = irs.compute(samples=dict(observations=data.observations*1.0, actions=data.actions, 
+                                                                rewards=data.rewards, terminateds=data.dones,
+                                                                truncateds=data.dones, next_observations=data.next_observations*1.0
+                                                                ))
+                    rewards_ += intrinsic_rewards
                 # CRITIC training
                 with torch.no_grad():
                     _, next_state_log_pi, next_state_action_probs = actor.get_action(data.next_observations)
@@ -357,7 +363,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                     )
                     # adapt Q-target for discrete Q-function
                     min_qf_next_target = min_qf_next_target.sum(dim=1)
-                    next_q_value = data.rewards.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target)
+                    next_q_value = rewards_.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target)
 
                 # use Q-values only for the taken actions
                 qf1_values = qf1(data.observations)

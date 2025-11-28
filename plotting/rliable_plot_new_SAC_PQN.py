@@ -203,7 +203,6 @@ if __name__ == '__main__':
         # './data/PPO_MinAtar_SpaceInvaders.csv',
         # './data/PPO_HalfCheetah_4_layers.csv',
     ]
-    
     for i in range(len(datadirs)):
         df = pd.read_csv(datadirs[i])
         jobs = get_jobs(df)

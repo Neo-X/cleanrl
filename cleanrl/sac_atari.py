@@ -45,7 +45,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    plot_freq: int = 10000
+    plot_freq: int = 1000
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
@@ -55,7 +55,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "ALE/NameThisGame-v5"
+    env_id: str = "ALE/SpaceInvaders-v5"
     """the id of the environment"""
     total_timesteps: int = 5000000
     """total timesteps of the experiments"""
@@ -81,7 +81,7 @@ class Args:
     """Entropy regularization coefficient."""
     autotune: bool = True
     """automatic tuning of the entropy coefficient"""
-    target_entropy_scale: float = 0.5
+    target_entropy_scale: float = 0.9
     """coefficient for scaling the autotune entropy target"""
 
     intrinsic_rewards: str = False

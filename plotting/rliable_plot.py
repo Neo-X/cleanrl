@@ -1,6 +1,3 @@
-from rliable import library as rly
-from rliable import metrics
-from rliable import plot_utils
 import numpy as np
 import pandas as pd
 
@@ -159,6 +156,21 @@ if __name__ == '__main__':
         (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
         scores['DQN'].append(((scores_ - min_)/((scores_max+0.0001) - min_))) ## For some envs no reward is ever found.
     
+    scores['DQN+RND'] = []
+    datadirs = [
+        './data/DQN_with_RND_on_MontezumaRevenge.csv',
+        './data/DQN_with_RND_on_BattleZone.csv',
+        './data/DQN_with_RND_on_Asterix.csv',
+        './data/DQN_with_RND_on_NameThisGame.csv',
+        './data/DQN_with_RND_on_SpaceInvaders.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
+        scores['DQN+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_))) ## For some envs no reward is ever found.
+
     scores['PPO'] = []
 
     datadirs = [
@@ -177,6 +189,107 @@ if __name__ == '__main__':
         (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
         (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
         scores['PPO'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['PPO+RND'] = []
+    datadirs = [
+        './data/PPO_with_RND_on_MontezumaRevenge.csv',
+        './data/PPO_with_RND_on_BattleZone.csv',
+        './data/PPO_with_RND_on_Asterix.csv',
+        './data/PPO_with_RND_on_NameThisGame.csv',
+        './data/PPO_with_RND_on_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
+        scores['PPO+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['SAC'] = []
+    datadirs = [
+        './data/SAC_on_ALE_BattleZone.csv',
+        './data/SAC_on_ALE_MontezumaRevenge.csv',
+        './data/SAC_on_ALE_NameThisGame.csv',
+        # './data/SAC_on_ALE_Asterix.csv',
+        # './data/SAC_on_ALE_SpaceInvaders.csv',
+        # './data/SAC_on_MinAtar_SpaceInvaders.csv',
+        # './data/SAC_on_MinAtar_Breakout.csv',
+        # './data/DQN_BattleZone.csv',
+        # './data/DQN_NameThisGame_ResNet.csv',
+        # './data/DQN_MR-all.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
+        scores['SAC'].append(((scores_ - min_)/((scores_max+0.0001) - min_))) ## For some envs no reward is ever found.
+
+    scores['SAC+RND'] = []
+    datadirs = [
+        './data/SAC_with_RND_on_ALE_BattleZone.csv',
+        './data/SAC_with_RND_on_ALE_MontezumaRevenge.csv',
+        './data/SAC_with_RND_on_ALE_NameThisGame.csv',
+        # './data/SAC_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/SAC_with_RND_on_MinAtar_Breakout.csv',
+        # './data/SAC_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/SAC_with_RND_on_MinAtar_Breakout.csv',
+        # './data/PPO_NameThisGame.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
+        scores['SAC+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['PQN'] = []
+    datadirs = [
+        # './data/PQN_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_on_MinAtar_Breakout.csv',
+        './data/PQN_on_ALE_NameThisGame.csv',
+        './data/PQN_on_ALE_BattleZone.csv',
+        './data/PQN_on_ALE_MontezumaRevenge.csv',
+        './data/PQN_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_on_MinAtar_Breakout.csv',
+        # './data/PQN_on_ALE_NameThisGame.csv',
+        # './data/PQN_on_ALE_BattleZone.csv',
+        # './data/PPO_NameThisGame.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
+        scores['PQN'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['PQN+RND'] = []
+    datadirs = [
+        # './data/PQN_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_with_RND_on_MinAtar_Breakout.csv',
+        # './data/PQN_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_with_RND_on_MinAtar_Breakout.csv',
+        './data/PQN_with_RND_on_ALE_NameThisGame.csv',
+        './data/PQN_with_RND_on_ALE_BattleZone.csv',
+        './data/PQN_with_RND_on_ALE_MontezumaRevenge.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_global", jobs=jobs)
+        scores['PQN+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
 
     for key in scores.keys():
         min_len = min([len(scores[key][i]) for i in range(len(scores[key]))])
@@ -235,9 +348,23 @@ if __name__ == '__main__':
         (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
         (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
         scores['DQN'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['DQN+RND'] = []
+    datadirs = [
+        './data/DQN_with_RND_on_MontezumaRevenge.csv',
+        './data/DQN_with_RND_on_BattleZone.csv',
+        './data/DQN_with_RND_on_Asterix.csv',
+        './data/DQN_with_RND_on_NameThisGame.csv',
+        './data/DQN_with_RND_on_SpaceInvaders.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
+        scores['DQN+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_))) ## For some envs no reward is ever found.
     
     scores['PPO'] = []
-
     datadirs = [
         './data/PPO_Asterix_with_RND.csv',
         './data/PPO_BattleZone.csv',
@@ -255,6 +382,104 @@ if __name__ == '__main__':
         # x.append(scores_)
         (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
         scores['PPO'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+    
+    scores['PPO+RND'] = []
+    datadirs = [
+        './data/PPO_with_RND_on_MontezumaRevenge.csv',
+        './data/PPO_with_RND_on_BattleZone.csv',
+        './data/PPO_with_RND_on_Asterix.csv',
+        './data/PPO_with_RND_on_NameThisGame.csv',
+        './data/PPO_with_RND_on_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
+        scores['PPO+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['SAC'] = []
+    datadirs = [
+        './data/SAC_on_ALE_BattleZone.csv',
+        './data/SAC_on_ALE_MontezumaRevenge.csv',
+        './data/SAC_on_ALE_NameThisGame.csv',
+        # './data/SAC_on_ALE_Asterix.csv',
+        # './data/SAC_on_ALE_SpaceInvaders.csv',
+        # './data/SAC_on_MinAtar_SpaceInvaders.csv',
+        # './data/SAC_on_MinAtar_Breakout.csv',
+        # './data/DQN_BattleZone.csv',
+        # './data/DQN_NameThisGame_ResNet.csv',
+        # './data/DQN_MR-all.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
+        scores['SAC'].append(((scores_ - min_)/((scores_max+0.0001) - min_))) ## For some envs no reward is ever found.
+
+    scores['SAC+RND'] = []
+    datadirs = [
+        './data/SAC_with_RND_on_ALE_BattleZone.csv',
+        './data/SAC_with_RND_on_ALE_MontezumaRevenge.csv',
+        './data/SAC_with_RND_on_ALE_NameThisGame.csv',
+        # './data/SAC_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/SAC_with_RND_on_MinAtar_Breakout.csv',
+        # './data/SAC_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/SAC_with_RND_on_MinAtar_Breakout.csv',
+        # './data/PPO_NameThisGame.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
+        scores['SAC+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    
+    scores['PQN'] = []
+    datadirs = [
+        # './data/PQN_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_on_MinAtar_Breakout.csv',
+        './data/PQN_on_ALE_NameThisGame.csv',
+        './data/PQN_on_ALE_BattleZone.csv',
+        './data/PQN_on_ALE_MontezumaRevenge.csv',
+        # './data/PQN_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_on_MinAtar_Breakout.csv',
+        # './data/PPO_NameThisGame.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
+        scores['PQN'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['PQN+RND'] = []
+    datadirs = [
+        # './data/PQN_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_with_RND_on_MinAtar_Breakout.csv',
+        './data/PQN_with_RND_on_ALE_NameThisGame.csv',
+        './data/PQN_with_RND_on_ALE_BattleZone.csv',
+        './data/PQN_with_RND_on_ALE_MontezumaRevenge.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (scores_max, min_) = get_data_frame(df, key=" - charts/avg_top_returns_local", jobs=jobs)
+        scores['PQN+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
 
     for key in scores.keys():
         min_len = min([len(scores[key][i]) for i in range(len(scores[key]))])
@@ -312,9 +537,23 @@ if __name__ == '__main__':
         (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
         (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
         scores['DQN'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['DQN+RND'] = []
+    datadirs = [
+        './data/DQN_with_RND_on_MontezumaRevenge.csv',
+        './data/DQN_with_RND_on_BattleZone.csv',
+        './data/DQN_with_RND_on_Asterix.csv',
+        './data/DQN_with_RND_on_NameThisGame.csv',
+        './data/DQN_with_RND_on_SpaceInvaders.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
+        scores['DQN+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_))) ## For some envs no reward is ever found.
     
     scores['PPO'] = []
-
     datadirs = [
         './data/PPO_Asterix_with_RND.csv',
         './data/PPO_BattleZone.csv',
@@ -324,13 +563,108 @@ if __name__ == '__main__':
         # './data/PPO_MinAtar_SpaceInvaders.csv',
         # './data/PPO_HalfCheetah_4_layers.csv',
     ]
-    
     for i in range(len(datadirs)):
         df = pd.read_csv(datadirs[i])
         jobs = get_jobs(df)
         (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
         (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
         scores['PPO'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['PPO+RND'] = []
+    datadirs = [
+        './data/PPO_with_RND_on_MontezumaRevenge.csv',
+        './data/PPO_with_RND_on_BattleZone.csv',
+        './data/PPO_with_RND_on_Asterix.csv',
+        './data/PPO_with_RND_on_NameThisGame.csv',
+        './data/PPO_with_RND_on_SpaceInvaders.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
+        scores['PPO+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['SAC'] = []
+    datadirs = [
+        './data/SAC_on_ALE_BattleZone.csv',
+        './data/SAC_on_ALE_MontezumaRevenge.csv',
+        './data/SAC_on_ALE_NameThisGame.csv',
+        # './data/SAC_on_ALE_Asterix.csv',
+        # './data/SAC_on_ALE_SpaceInvaders.csv',
+        # './data/SAC_with_RND_on_ALE_BattleZone.csv',
+        # './data/DQN_NameThisGame_ResNet.csv',
+        # './data/DQN_MR-all.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
+        scores['SAC'].append(((scores_ - min_)/((scores_max+0.0001) - min_))) ## For some envs no reward is ever found.
+
+    scores['SAC+RND'] = []
+    datadirs = [
+        './data/SAC_with_RND_on_ALE_BattleZone.csv',
+        './data/SAC_with_RND_on_ALE_MontezumaRevenge.csv',
+        './data/SAC_with_RND_on_ALE_NameThisGame.csv',
+        # './data/SAC_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/SAC_with_RND_on_MinAtar_Breakout.csv',
+        # './data/SAC_with_RND_on_ALE_Asterix.csv',
+        # './data/SAC_with_RND_on_ALE_SpaceInvaders.csv',
+        # './data/PPO_NameThisGame.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
+        scores['SAC+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    
+    scores['PQN'] = []
+    datadirs = [
+        # './data/PQN_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_on_MinAtar_Breakout.csv',
+        './data/PQN_on_ALE_NameThisGame.csv',
+        './data/PQN_on_ALE_BattleZone.csv',
+        './data/PQN_on_ALE_MontezumaRevenge.csv',
+        # './data/PQN_on_ALE_Asterix.csv',
+        # './data/PQN_on_ALE_SpaceInvaders.csv',
+        # './data/PPO_NameThisGame.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
+        scores['PQN'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
+
+    scores['PQN+RND'] = []
+    datadirs = [
+        # './data/PQN_with_RND_on_MinAtar_SpaceInvaders.csv',
+        # './data/PQN_with_RND_on_MinAtar_Breakout.csv',
+        './data/PQN_with_RND_on_ALE_NameThisGame.csv',
+        './data/PQN_with_RND_on_ALE_BattleZone.csv',
+        './data/PQN_with_RND_on_ALE_MontezumaRevenge.csv',
+        # './data/PQN_with_RND_on_ALE_Asterix.csv',
+        # './data/PQN_with_RND_on_ALE_SpaceInvaders.csv',
+        # './data/PPO_SpaceInvaders.csv',
+        # './data/PPO_MinAtar_SpaceInvaders.csv',
+        # './data/PPO_HalfCheetah_4_layers.csv',
+    ]
+    for i in range(len(datadirs)):
+        df = pd.read_csv(datadirs[i])
+        jobs = get_jobs(df)
+        (scores_, min_) = get_data_frame(df, key=" - charts/episodic_return", jobs=jobs)
+        (min_, scores_max) = atari_human_normalized_scores[task_list[i]]
+        scores['PQN+RND'].append(((scores_ - min_)/((scores_max+0.0001) - min_)))
 
     for key in scores.keys():
         min_len = min([len(scores[key][i]) for i in range(len(scores[key]))])

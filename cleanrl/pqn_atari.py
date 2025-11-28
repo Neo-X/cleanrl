@@ -37,7 +37,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    plot_freq: int = 100
+    plot_freq: int = 10
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
@@ -47,7 +47,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "ALE/NameThisGame-v5"
+    env_id: str = "ALE/Asterix-v5"
     """the id of the environment"""
     total_timesteps: int = 500000
     """total timesteps of the experiments"""
@@ -358,7 +358,7 @@ if __name__ == "__main__":
         if iteration % args.plot_freq == 0:
             writer.add_scalar("losses/td_loss", loss, global_step)
             writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
-            print("SPS:", int(global_step / (time.time() - start_time)))
+            # print("SPS:", int(global_step / (time.time() - start_time)))
             writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
             #====================== log reward statistics ===================== #
             writer.add_scalar("charts/reward mean", rewards.mean(), global_step)

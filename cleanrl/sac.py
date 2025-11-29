@@ -74,7 +74,7 @@ class Args:
     """Entropy regularization coefficient."""
     autotune: bool = True
     """automatic tuning of the entropy coefficient"""
-    target_entropy_scale: float = 0.5 ## https://github.com/jakegrigsby/super_sac/blob/92398326f04b22ea2a7d3abe2e6a626620dcead5/experiments/minatar/basic_online.gin#L47
+    target_entropy_scale: float = 0.89 ## https://github.com/jakegrigsby/super_sac/blob/92398326f04b22ea2a7d3abe2e6a626620dcead5/experiments/minatar/basic_online.gin#L47
     """coefficient for scaling the autotune entropy target"""
 
     intrinsic_rewards: str = False
@@ -111,8 +111,13 @@ def make_env(env_id, seed, idx, capture_video, run_name):
     return thunk
 
 
-def layer_init(layer, bias_const=0.0):
-    nn.init.kaiming_normal_(layer.weight)
+# def layer_init(layer, bias_const=0.0):
+#     nn.init.kaiming_normal_(layer.weight)
+#     torch.nn.init.constant_(layer.bias, bias_const)
+#     return layer
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
@@ -146,7 +151,7 @@ class SoftQNetwork(nn.Module):
 
     def forward(self, x):
         x = self.conv(x * 1.0)
-        x = self.fc1(x)
+        x = F.relu(self.fc1(x))
         q_vals = self.fc_q(x)
         return q_vals
 
@@ -176,7 +181,7 @@ class Actor(nn.Module):
 
     def forward(self, x):
         x = self.conv(x * 1.0)
-        x = self.fc1(x)
+        x = F.relu(self.fc1(x))
         logits = self.fc_logits(x)
 
         return logits

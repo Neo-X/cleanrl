@@ -47,7 +47,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "ALE/Asterix-v5"
+    env_id: str = "ALE/NameThisGame-v5"
     """the id of the environment"""
     total_timesteps: int = 500000
     """total timesteps of the experiments"""
@@ -134,12 +134,10 @@ def make_env(env_id, seed, idx, capture_video, run_name):
 
     return thunk
 
-
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
-
 
 # ALGO LOGIC: initialize agent here:
 class QNetwork(nn.Module):
@@ -157,16 +155,20 @@ class QNetwork(nn.Module):
             )
         else:
             self.network = nn.Sequential(
-                nn.Conv2d(4, 32, 8, stride=4),
+                layer_init(nn.Conv2d(4, 32, 8, stride=4)),
+                nn.LayerNorm([32, 20, 20]),
                 nn.ReLU(),
-                nn.Conv2d(32, 64, 4, stride=2),
+                layer_init(nn.Conv2d(32, 64, 4, stride=2)),
+                nn.LayerNorm([64, 9, 9]),
                 nn.ReLU(),
-                nn.Conv2d(64, 64, 3, stride=1),
+                layer_init(nn.Conv2d(64, 64, 3, stride=1)),
+                nn.LayerNorm([64, 7, 7]),
                 nn.ReLU(),
                 nn.Flatten(),
-                nn.Linear(3136, 512),
+                layer_init(nn.Linear(3136, 512)),
+                nn.LayerNorm(512),
                 nn.ReLU(),
-                nn.Linear(512, env.single_action_space.n),
+                layer_init(nn.Linear(512, env.single_action_space.n)),
             )
 
     def forward(self, x):

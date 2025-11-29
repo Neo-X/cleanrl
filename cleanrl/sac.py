@@ -91,7 +91,7 @@ class Args:
     """The scale of the intrinsic reward"""
     num_layers: int = 1
     """The number of layers in the neural network"""
-    num_units: int = 64
+    num_units: int = 256
     """The number of units in the neural network"""
     use_layer_norm: bool = False
     """Whether to use layer normalization"""
@@ -130,7 +130,7 @@ class SoftQNetwork(nn.Module):
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), args.num_units)),
             nn.ReLU()]
         
-        for i in range(args.num_layers-1):
+        for i in range(args.num_layers):
             layers.append(layer_init(nn.Linear(args.num_units, args.num_units)))
             layers.append(nn.ReLU())
             if args.use_layer_norm:
@@ -145,8 +145,8 @@ class SoftQNetwork(nn.Module):
         self.fc_q = layer_init(nn.Linear(64, envs.single_action_space.n))
 
     def forward(self, x):
-        x = F.relu(self.conv(x * 1.0))
-        x = F.relu(self.fc1(x))
+        x = self.conv(x * 1.0)
+        x = self.fc1(x)
         q_vals = self.fc_q(x)
         return q_vals
 
@@ -160,7 +160,7 @@ class Actor(nn.Module):
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), args.num_units)),
             nn.ReLU()]
         
-        for i in range(args.num_layers-1):
+        for i in range(args.num_layers):
             layers.append(layer_init(nn.Linear(args.num_units, args.num_units)))
             layers.append(nn.ReLU())
             if args.use_layer_norm:
@@ -175,8 +175,8 @@ class Actor(nn.Module):
         self.fc_logits = layer_init(nn.Linear(64, envs.single_action_space.n))
 
     def forward(self, x):
-        x = F.relu(self.conv(x * 1.0))
-        x = F.relu(self.fc1(x))
+        x = self.conv(x * 1.0)
+        x = self.fc1(x)
         logits = self.fc_logits(x)
 
         return logits

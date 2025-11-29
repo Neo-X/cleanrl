@@ -47,7 +47,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "MinAtar/SpaceInvaders-v0"
+    env_id: str = "MinAtar/Asterix-v0"
     """the id of the environment"""
     total_timesteps: int = 10000000
     """total timesteps of the experiments"""
@@ -123,20 +123,16 @@ class QNetwork(nn.Module):
     def __init__(self, env):
         super().__init__()
 
-        layers = [
-                nn.Flatten(),
-                  nn.Linear(np.array(envs.single_observation_space.shape).prod(), args.num_units),
-                  nn.ReLU()]
-        for i in range(args.num_layers-1):
-            layers.append(nn.Linear(args.num_units, args.num_units))
-            layers.append(nn.ReLU())
-            if args.use_layer_norm:
-                layers.append(nn.LayerNorm(args.num_units))
-
-        layers.extend([nn.Linear(args.num_units, 84),
-                        nn.ReLU(),
-                        nn.Linear(84, env.single_action_space.n),])
-        self.network = nn.Sequential(*layers)
+        self.network = nn.Sequential(
+            nn.Flatten(),
+            layer_init(nn.Linear(np.array(env.single_observation_space.shape).prod(), 120)),
+            nn.LayerNorm(120),
+            nn.ReLU(),
+            layer_init(nn.Linear(120, 84)),
+            nn.LayerNorm(84),
+            nn.ReLU(),
+            layer_init(nn.Linear(84, env.single_action_space.n)),
+        )
 
     def forward(self, x):
         return self.network(x)

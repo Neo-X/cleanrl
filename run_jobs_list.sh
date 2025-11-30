@@ -53,14 +53,12 @@ done
 
 ## Atari RL envs
 strings=(
-    "ALE/MontezumaRevenge-v5"
-    "AsterixNoFrameskip-v4"
-    "SpaceInvadersNoFrameskip-v4"
+    # "ALE/MontezumaRevenge-v5"
     # "PitfallNoFrameskip-v4"
-    # "ALE/BattleZone-v5"
-    # "ALE/NameThisGame-v5"
-    "ALE/SpaceInvaders-v5"
-    "ALE/Asterix-v5"
+    "ALE/BattleZone-v5"
+    "ALE/NameThisGame-v5"
+    # "ALE/SpaceInvaders-v5"
+    # "ALE/Asterix-v5"
     # "PhoenixNoFrameskip-v4"
 )
 for env in "${strings[@]}"; do
@@ -74,8 +72,8 @@ for env in "${strings[@]}"; do
     # sbatch --array=5-10 --export=ALL,ALG='cleanrl/dqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' launchGPU.sh ## with RND
     # sbatch --array=5-10 --export=ALL,ALG='cleanrl/dqn_atari.py',ENV_ID=$env,ARGSS='--network_type ResNet --total_timesteps 50000000' --time=6-00:00:00 launchGPU.sh ## with ResNet
     ## PQN Experiments
-    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000' --time=11:59:00 launchGPU.sh ## Normal
-    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=11:59:00 launchGPU.sh ## with RND
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000' --time=11:59:00 launchGPU.sh ## Normal
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=11:59:00 launchGPU.sh ## with RND
     # sbatch --array=1-10 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--network_type ResNet --total_timesteps 50000000' --time=6-00:00:00 launchGPU.sh ## with ResNet
     ## SAC Experiments
     sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 20000000' --time=11:59:00 launchGPU.sh ## Normal

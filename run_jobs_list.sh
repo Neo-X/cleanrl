@@ -3,12 +3,12 @@
 
 ## Discrete RL Envs
 strings=(
-    "MinAtar/SpaceInvaders-v0"
-    "MinAtar/Breakout-v0"
-    "MinAtar/Asterix-v0"
-    "MinAtar/Seaquest-v0"
-    "MinAtar/Freeway-v0"
-    "LunarLander-v2"
+    # "MinAtar/SpaceInvaders-v0"
+    # "MinAtar/Breakout-v0"
+    # "MinAtar/Asterix-v0"
+    # "MinAtar/Seaquest-v0"
+    # "MinAtar/Freeway-v0"
+    # "LunarLander-v2"
 )
 for env in "${strings[@]}"; do
     echo "$env"
@@ -74,11 +74,11 @@ for env in "${strings[@]}"; do
     # sbatch --array=5-10 --export=ALL,ALG='cleanrl/dqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' launchGPU.sh ## with RND
     # sbatch --array=5-10 --export=ALL,ALG='cleanrl/dqn_atari.py',ENV_ID=$env,ARGSS='--network_type ResNet --total_timesteps 50000000' --time=6-00:00:00 launchGPU.sh ## with ResNet
     ## PQN Experiments
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000' --time=11:59:00 launchGPU.sh ## Normal
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=11:59:00 launchGPU.sh ## with RND
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000' --time=11:59:00 launchGPU.sh ## Normal
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 50000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=11:59:00 launchGPU.sh ## with RND
     # sbatch --array=1-10 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--network_type ResNet --total_timesteps 50000000' --time=6-00:00:00 launchGPU.sh ## with ResNet
     ## SAC Experiments
-    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 20000000' --time=11:59:00 launchGPU.sh ## Normal
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 20000000' --time=11:59:00 launchGPU.sh ## Normal
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 20000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=11:59:00 launchGPU.sh ## with RND
     # sbatch --array=1-10 --export=ALL,ALG='cleanrl/pqn_atari.py',ENV_ID=$env,ARGSS='--network_type ResNet --total_timesteps 50000000' --time=6-00:00:00 launchGPU.sh ## with ResNet
 done

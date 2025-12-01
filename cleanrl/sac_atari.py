@@ -345,7 +345,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
                     #====================== optimality gap computation logging ======================#
                     gap_stats.plot_gap(writer, global_step)
                     #====================== optimality gap computation logging ======================#
-                    break
+                    
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()

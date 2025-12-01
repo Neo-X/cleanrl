@@ -2,6 +2,16 @@
 import collections
 import math
 import os
+# Limit threads for OpenBLAS
+os.environ["OPENBLAS_NUM_THREADS"] = "4" 
+# Limit threads for MKL
+os.environ["MKL_NUM_THREADS"] = "4"
+# Limit threads for OpenMP (a common standard for parallel programming)
+os.environ["OMP_NUM_THREADS"] = "4"
+# Limit threads for VecLib (another potential backend)
+os.environ["VECLIB_MAXIMUM_THREADS"] = "4"
+# Limit threads for NumExpr (if used for expression evaluation)
+os.environ["NUMEXPR_NUM_THREADS"] = "4"
 import random
 import time
 from collections import deque
@@ -20,6 +30,8 @@ from stable_baselines3.common.atari_wrappers import (
     ClipRewardEnv,
     FireResetEnv,
     MaxAndSkipEnv,
+    EpisodicLifeEnv,
+    NoopResetEnv,
 )
 
 
@@ -125,8 +137,8 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         # env = gym.wrappers.RecordEpisodeStatistics(env)
 
         # env = NoopResetEnv(env, noop_max=30)
-        env = MaxAndSkipEnv(env, skip=4)
-        # env = EpisodicLifeEnv(env)
+        # env = MaxAndSkipEnv(env, skip=4)
+        env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)
         env = ClipRewardEnv(env)
@@ -401,6 +413,10 @@ class PrioritizedReplayBuffer:
             self.min_tree.update(idx, priority)
 
 
+def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
+    slope = (end_e - start_e) / duration
+    return max(slope * t + start_e, end_e)
+
 if __name__ == "__main__":
     args = tyro.cli(Args)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
@@ -483,10 +499,16 @@ if __name__ == "__main__":
         with torch.no_grad():
             q_dist = q_network(torch.Tensor(obs).to(device))
             q_values = torch.sum(q_dist * q_network.support, dim=2)
-            actions = torch.argmax(q_values, dim=1).cpu().numpy()
+            max_actions = torch.argmax(q_values, dim=1)
+            # print(actions )
+
+        epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
+        random_actions = torch.randint(0, envs.single_action_space.n, (args.num_envs,)).to(device)
+        explore = torch.rand((args.num_envs,)).to(device) < epsilon
+        actions = torch.where(explore, random_actions, max_actions)
 
         # TRY NOT TO MODIFY: execute the game and log data.
-        next_obs, rewards, terminations, truncations, infos = envs.step(actions)
+        next_obs, rewards, terminations, truncations, infos = envs.step(actions.cpu().numpy())
         # ===================== watch the interaction ===================== #
         if args.intrinsic_rewards:
             irs.watch(observations=obs, actions=actions, 
@@ -500,7 +522,7 @@ if __name__ == "__main__":
                     gap_stats.add(info["episode"])
                     if global_step - last_global_step >= args.plot_freq*5:
                         last_global_step = global_step
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}, epsilon={epsilon:.3f}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
                         #====================== optimality gap computation logging ======================#

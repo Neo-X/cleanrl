@@ -3,12 +3,12 @@
 
 ## Discrete RL Envs
 strings=(
-    "MinAtar/SpaceInvaders-v0"
-    "MinAtar/Breakout-v0"
-    "MinAtar/Asterix-v0"
-    "MinAtar/Seaquest-v0"
-    "MinAtar/Freeway-v0"
-    "LunarLander-v2"
+    # "MinAtar/SpaceInvaders-v0"
+    # "MinAtar/Breakout-v0"
+    # "MinAtar/Asterix-v0"
+    # "MinAtar/Seaquest-v0"
+    # "MinAtar/Freeway-v0"
+    # "LunarLander-v2"
 )
 for env in "${strings[@]}"; do
     echo "$env"
@@ -80,7 +80,7 @@ for env in "${strings[@]}"; do
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 20000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=11:59:00 launchGPU.sh ## with RND
     # sbatch --array=1-10 --export=ALL,ALG='cleanrl/sac_atari.py',ENV_ID=$env,ARGSS='--network_type ResNet --total_timesteps 50000000' --time=6-00:00:00 launchGPU.sh ## with ResNet
     ## Raindbow Experiments
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/rainbow_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 25000000' --time=11:59:00 launchGPU.sh ## Normal
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/rainbow_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 25000000 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=11:59:00 launchGPU.sh ## with RND
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/rainbow_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 25000000 --exploration_fraction=0.025' --time=23:59:00 launchGPU.sh ## Normal
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/rainbow_atari.py',ENV_ID=$env,ARGSS='--total_timesteps 25000000 --exploration_fraction=0.025 --intrinsic_rewards RND --intrinsic_reward_scale=0.2' --time=23:59:00 launchGPU.sh ## with RND
     # sbatch --array=1-10 --export=ALL,ALG='cleanrl/rainbow_atari.py',ENV_ID=$env,ARGSS='--network_type ResNet --total_timesteps 50000000' --time=6-00:00:00 launchGPU.sh ## with ResNet
 done

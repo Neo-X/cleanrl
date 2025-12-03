@@ -499,13 +499,13 @@ if __name__ == "__main__":
         with torch.no_grad():
             q_dist = q_network(torch.Tensor(obs).to(device))
             q_values = torch.sum(q_dist * q_network.support, dim=2)
-            max_actions = torch.argmax(q_values, dim=1)
+            actions = torch.argmax(q_values, dim=1)
             # print(actions )
 
-        epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
-        random_actions = torch.randint(0, envs.single_action_space.n, (args.num_envs,)).to(device)
-        explore = torch.rand((args.num_envs,)).to(device) < epsilon
-        actions = torch.where(explore, random_actions, max_actions)
+        # epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
+        # random_actions = torch.randint(0, envs.single_action_space.n, (args.num_envs,)).to(device)
+        # explore = torch.rand((args.num_envs,)).to(device) < epsilon
+        # actions = torch.where(explore, random_actions, max_actions)
 
         # TRY NOT TO MODIFY: execute the game and log data.
         next_obs, rewards, terminations, truncations, infos = envs.step(actions.cpu().numpy())
@@ -522,7 +522,7 @@ if __name__ == "__main__":
                     gap_stats.add(info["episode"])
                     if global_step - last_global_step >= args.plot_freq*5:
                         last_global_step = global_step
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}, epsilon={epsilon:.3f}")
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
                         #====================== optimality gap computation logging ======================#

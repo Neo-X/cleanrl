@@ -15,12 +15,14 @@ if __name__ == '__main__':
             # 'PQN_on_ALE_BattleZone',
             #   'PQN_on_ALE_MontezumaRevenge',
             #   'PQN_on_ALE_NameThisGame',
+              'PQN_on_ALE_Asterix',
+              'PQN_on_ALE_SpaceInvaders',
             #   'PQN_on_MinAtar_Asterix',
             #   'PQN_on_MinAtar_Breakout',
             #   'PQN_on_MinAtar_Freeway',
             #   'PQN_on_MinAtar_Seaquest',
-              'PQN_on_MinAtar_SpaceInvaders',
-              'PQN_on_LunarLander'
+              # 'PQN_on_MinAtar_SpaceInvaders',
+              # 'PQN_on_LunarLander'
               ]
     for title in titles:
 

@@ -1,15 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/pqn/#pqnpy
 import os
 # Limit threads for OpenBLAS
-os.environ["OPENBLAS_NUM_THREADS"] = "4" 
+os.environ["OPENBLAS_NUM_THREADS"] = "8" 
 # Limit threads for MKL
-os.environ["MKL_NUM_THREADS"] = "4"
+os.environ["MKL_NUM_THREADS"] = "8"
 # Limit threads for OpenMP (a common standard for parallel programming)
-os.environ["OMP_NUM_THREADS"] = "4"
+os.environ["OMP_NUM_THREADS"] = "8"
 # Limit threads for VecLib (another potential backend)
-os.environ["VECLIB_MAXIMUM_THREADS"] = "4"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "8"
 # Limit threads for NumExpr (if used for expression evaluation)
-os.environ["NUMEXPR_NUM_THREADS"] = "4"
+os.environ["NUMEXPR_NUM_THREADS"] = "8"
 import random
 import time
 from dataclasses import dataclass
@@ -360,7 +360,8 @@ if __name__ == "__main__":
         if iteration % args.plot_freq == 0:
             writer.add_scalar("losses/td_loss", loss, global_step)
             writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
-            # print("SPS:", int(global_step / (time.time() - start_time)))
+            if not args.track:
+                print("SPS:", int(global_step / (time.time() - start_time)))
             writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
             #====================== log reward statistics ===================== #
             writer.add_scalar("charts/reward mean", rewards.mean(), global_step)

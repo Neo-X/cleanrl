@@ -88,6 +88,8 @@ class Args:
     """The job id for the slurm job"""
     intrinsic_reward_scale: float = 1.0
     """The scale of the intrinsic reward"""
+    old_wrapers: bool = False
+    """Whether to use the old wrappers for the Atari environments"""
     num_layers: int = 1
     """The number of layers in the neural network"""
     num_units: int = 128
@@ -103,6 +105,8 @@ def make_env(env_id, seed, idx, capture_video, run_name):
     ClipRewardEnv,
     FireResetEnv,
     MaxAndSkipEnv,
+    NoopResetEnv,
+    EpisodicLifeEnv,
 )
     def thunk():
         if capture_video and idx == 0:
@@ -118,9 +122,11 @@ def make_env(env_id, seed, idx, capture_video, run_name):
                             )
         import buffer_gap
 
-        # env = NoopResetEnv(env, noop_max=30)
+        if args.old_wrapers:
+            env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
-        # env = EpisodicLifeEnv(env)
+        if args.old_wrapers:
+            env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)
         env = ClipRewardEnv(env)

@@ -1,15 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_ataripy
 import os
 # Limit threads for OpenBLAS
-os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+os.environ["OPENBLAS_NUM_THREADS"] = "8" 
 # Limit threads for MKL
-os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "8"
 # Limit threads for OpenMP (a common standard for parallel programming)
-os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "8"
 # Limit threads for VecLib (another potential backend)
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "8"
 # Limit threads for NumExpr (if used for expression evaluation)
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "8"
 import random
 import time
 from dataclasses import dataclass
@@ -60,7 +60,7 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
 
     # Algorithm specific arguments
-    env_id: str = "ALE/BattleZone-v5"
+    env_id: str = "ALE/NameThisGame-v5"
     """the id of the environment"""
     total_timesteps: int = 10000000
     """total timesteps of the experiments"""
@@ -116,6 +116,8 @@ class Args:
     """The job id for the slurm job"""
     intrinsic_reward_scale: float = 1.0
     """The scale of the intrinsic reward"""
+    old_wrapers: bool = False
+    """Whether to use the old wrappers for the Atari environments"""
 
 
 def make_env(env_id, idx, capture_video, run_name):
@@ -137,9 +139,11 @@ def make_env(env_id, idx, capture_video, run_name):
                             full_action_space=False, # Use the smaller, more common action space
                             render_mode=None # or "human" if you want to watch)
                             )
-        # env = NoopResetEnv(env, noop_max=30)
+        if args.old_wrapers:
+            env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
-        # env = EpisodicLifeEnv(env)
+        if args.old_wrapers:
+            env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)
         env = ClipRewardEnv(env)

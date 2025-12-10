@@ -126,6 +126,7 @@ def make_env(env_id, seed, idx, capture_video, run_name):
                                 render_mode=None # or "human" if you want to watch)
                                 )
 
+        env = gym.wrappers.RecordEpisodeStatistics(env)
         # env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
         # env = EpisodicLifeEnv(env)

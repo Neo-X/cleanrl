@@ -130,6 +130,7 @@ def make_env(env_id, seed, idx, capture_video, run_name):
                                 full_action_space=False, # Use the smaller, more common action space
                                 render_mode=None # or "human" if you want to watch)
                                 )
+        env = gym.wrappers.RecordEpisodeStatistics(env)
         if args.old_wrapers:
             env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
@@ -142,7 +143,7 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         env = gym.wrappers.GrayScaleObservation(env)
         env = gym.wrappers.FrameStack(env, 4)
         import buffer_gap
-        env = buffer_gap.RecordEpisodeStatisticsV2(env)
+        env = buffer_gap.RecordEpisodeStatisticsV2(env) ## Add actions and rewards to sta
 
         env.action_space.seed(seed)
         return env

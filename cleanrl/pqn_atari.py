@@ -120,6 +120,7 @@ def make_env(env_id, seed, idx, capture_video, run_name):
                                 full_action_space=False, # Use the smaller, more common action space
                                 render_mode=None # or "human" if you want to watch)
                             )
+        env = gym.wrappers.RecordEpisodeStatistics(env)
         import buffer_gap
 
         if args.old_wrapers:

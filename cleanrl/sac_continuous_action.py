@@ -1,15 +1,15 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/sac/#sac_continuous_actionpy
 import os
 # Limit threads for OpenBLAS
-os.environ["OPENBLAS_NUM_THREADS"] = "1" 
+os.environ["OPENBLAS_NUM_THREADS"] = "4" 
 # Limit threads for MKL
-os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "4"
 # Limit threads for OpenMP (a common standard for parallel programming)
-os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "4"
 # Limit threads for VecLib (another potential backend)
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "4"
 # Limit threads for NumExpr (if used for expression evaluation)
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "4"
 import random
 import time
 from dataclasses import dataclass
@@ -105,6 +105,7 @@ def make_env(env_id, seed, idx, capture_video, run_name):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
         import buffer_gap
         env = buffer_gap.RecordEpisodeStatisticsV2(env)
         env.action_space.seed(seed)

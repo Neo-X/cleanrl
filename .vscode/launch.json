@@ -17,6 +17,7 @@
                 // "--track",
                 // "--num_envs=1",
                 "--plot_freq=10",
+                "--old_wrappers",
             ]
         }
     ]

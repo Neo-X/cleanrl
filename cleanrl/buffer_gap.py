@@ -295,8 +295,7 @@ class RecordEpisodeStatisticsV2(gym.Wrapper, gym.utils.RecordConstructorArgs):
         self.episode_rewards.append(rewards)
         dones = np.logical_or(terminations, truncations)
         num_dones = np.sum(dones)
-        if num_dones:
-
+        if num_dones and "episode" in infos:
             infos["episode"]["actions"] = np.where(dones, self.episode_actions, 0) if isinstance(self.env.action_space, gym.spaces.Discrete) else np.where(dones, self.episode_actions, 0)
             infos["episode"]["rewards"] = np.where(dones, self.episode_rewards, 0)
             

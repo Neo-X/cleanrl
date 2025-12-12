@@ -123,10 +123,10 @@ def make_env(env_id, seed, idx, capture_video, run_name):
         env = gym.wrappers.RecordEpisodeStatistics(env)
         import buffer_gap
 
-        if args.old_wrapers:
+        if args.old_wrappers:
             env = NoopResetEnv(env, noop_max=30)
         env = MaxAndSkipEnv(env, skip=4)
-        if args.old_wrapers:
+        if args.old_wrappers:
             env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)

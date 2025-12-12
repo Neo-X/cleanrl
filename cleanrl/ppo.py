@@ -106,7 +106,7 @@ class Args:
     """The job id for the slurm job"""
 intrinsic_reward_scale: float = 1.0
     """The scale of the intrinsic reward"""
-    old_wrapers: bool = False
+    old_wrappers: bool = False
     """Whether to use the old wrappers for the Atari environments"""
     num_layers: int = 1
     """The number of layers in the neural network"""

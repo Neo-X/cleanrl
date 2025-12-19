@@ -5,6 +5,13 @@
 *.json
 **/wandb
 **/runs
+**/runs2
+**/data
 **/videos
 .git
 *.tfevents.*
+**/.venv
+**/__pycache__
+.vscode
+.DS_Store
+./docs

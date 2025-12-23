@@ -102,7 +102,7 @@ class Args:
     """The top percent of the buffer for computing the optimality gap"""
     return_buffer_size: int = 1000
     """the replay memory buffer size"""
-    log_dir: str = False
+    log_dir: str = ""
     """The directory to save the logs"""
     job_id : int = 0
     """The job id for the slurm job"""

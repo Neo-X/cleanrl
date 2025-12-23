@@ -1,30 +1,41 @@
-FROM nvidia/cuda:11.4.2-runtime-ubuntu20.04
+# syntax=docker/dockerfile:1.4
+ARG BASE_IMAGE=docker.io/python:3.10-slim-bookworm
+FROM $BASE_IMAGE
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# install ubuntu dependencies
-ENV DEBIAN_FRONTEND=noninteractive 
 RUN apt-get update && \
-    apt-get -y install python3-pip xvfb ffmpeg git build-essential python-opengl
-RUN ln -s /usr/bin/python3 /usr/bin/python
+    apt-get -y install xvfb ffmpeg git build-essential libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender1
 
-# install python dependencies
-RUN mkdir cleanrl_utils && touch cleanrl_utils/__init__.py
-RUN pip install poetry --upgrade
-COPY pyproject.toml pyproject.toml
-COPY poetry.lock poetry.lock
-RUN poetry install
+ARG EXTRA_SYSTEM_PACKAGES=""
+ARG EXTRA_PYTHON_PACKAGES=""
 
-# install mujoco_py
-RUN apt-get -y install wget unzip software-properties-common \
-    libgl1-mesa-dev \
-    libgl1-mesa-glx \
-    libglew-dev \
-    libosmesa6-dev patchelf
-RUN poetry install -E "atari mujoco_py"
-RUN poetry run python -c "import mujoco_py"
+WORKDIR /workspace
 
-COPY entrypoint.sh /usr/local/bin/
-RUN chmod 777 /usr/local/bin/entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENV UV_PYTHON_DOWNLOADS=0
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
 
-# copy local files
-COPY ./cleanrl /cleanrl
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    git $EXTRA_SYSTEM_PACKAGES \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system pysocks $EXTRA_PYTHON_PACKAGES
+
+RUN uv venv --system-site-packages
+
+ENV PATH="/workspace/.venv/bin:$PATH"
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=ssh \
+    uv sync --frozen --no-install-project --no-dev --no-editable
+
+COPY --link . /workspace
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=ssh \
+    uv sync --frozen --no-dev
+
+ENTRYPOINT [ "python" ]

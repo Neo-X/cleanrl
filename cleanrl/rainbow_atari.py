@@ -103,7 +103,7 @@ class Args:
     v_max: float = 10
     """the return upper bound"""
 
-    plot_freq: int = 10
+    plot_freq: int = 1000
     """The frequency of plotting"""
     intrinsic_rewards: str = False
     """Whether to use intrinsic rewards"""
@@ -523,7 +523,7 @@ if __name__ == "__main__":
             for info in infos["final_info"]:
                 if info and "episode" in info:
                     gap_stats.add(info["episode"])
-                    if global_step - last_global_step >= args.plot_freq*5:
+                    if global_step - last_global_step >= args.plot_freq*10:
                         last_global_step = global_step
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)

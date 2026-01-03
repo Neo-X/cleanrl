@@ -6,6 +6,10 @@ from xmanager import xm
 import xm_slurm
 import xm_slurm.contrib.clusters
 
+import os
+# --- CONFIGURATION ---
+wandb_api_key = os.environ.get("WANDB_API_KEY")
+
 
 @xm.run_in_asyncio_loop
 async def main(_):
@@ -18,8 +22,8 @@ async def main(_):
             [
                 xm_slurm.docker_container(
                     executor_spec=executor_spec,
-                    args=["cleanrl/ppo_continuous_action.py", "--track"],
-                    env_vars={"WANDB_API_KEY": "10000"},
+                    args=["cleanrl/rainbow_atari.py", "--track"],
+                    env_vars={"WANDB_API_KEY": wandb_api_key},
                 ),
             ],
         )
@@ -29,8 +33,9 @@ async def main(_):
                 executable=executable,
                 executor=xm_slurm.Slurm(
                     requirements=xm_slurm.JobRequirements(
-                        CPU=1,
-                        RAM=16 * xm.GiB,
+                        CPU=16,
+                        RAM=64 * xm.GiB,
+                        GPU=1,
                         cluster=xm_slurm.contrib.clusters.mila(user="glen.berseth"),
                     ),
                     time=dt.timedelta(hours=1),

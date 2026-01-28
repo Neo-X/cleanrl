@@ -143,8 +143,11 @@ if __name__ == '__main__':
     scores = {
         "DQN": [],
         "PPO": [],
-        "Rainbow": [],
-        "PQN": []
+        "PQN": [],
+        # "Rainbow": [],
+        # "PPO+RND": [],
+        # "DQN+RND": [],
+        # "PQN+RND": [],
     }
     datadirs = {
         "DQN": [
@@ -174,10 +177,31 @@ if __name__ == '__main__':
             './data/PQN_on_ALE_Asterix.csv',
             './data/PQN_on_ALE_NameThisGame.csv',
             './data/PQN_on_ALE_SpaceInvaders.csv',
+        ],
+        "PPO+RND": [
+            './data/PPO_RND_on_ALE_BattleZone.csv',
+            './data/PPO_RND_on_ALE_BattleZone.csv',
+            './data/PPO_RND_on_ALE_Asterix.csv',
+            './data/PPO_RND_on_ALE_NameThisGame.csv',
+            './data/PPO_RND_on_ALE_SpaceInvaders.csv',
+        ],
+        "DQN+RND": [
+            './data/DQN_RND_on_ALE_BattleZone.csv',
+            './data/DQN_RND_on_ALE_BattleZone.csv',
+            './data/DQN_RND_on_ALE_Asterix.csv',
+            './data/DQN_RND_on_ALE_NameThisGame.csv',
+            './data/DQN_RND_on_ALE_SpaceInvaders.csv',
+        ],
+        "PQN+RND": [
+            './data/PQN_RND_on_ALE_BattleZone.csv',
+            './data/PQN_RND_on_ALE_BattleZone.csv',
+            './data/PQN_RND_on_ALE_Asterix.csv',
+            './data/PQN_RND_on_ALE_NameThisGame.csv',
+            './data/PQN_RND_on_ALE_SpaceInvaders.csv',
         ]
     }
 
-    for key in datadirs.keys():
+    for key in scores.keys():
         for i in range(len(datadirs[key])):
             df = pd.read_csv(datadirs[key][i])
             jobs = get_jobs(df)
@@ -212,7 +236,7 @@ if __name__ == '__main__':
         algorithms=algos,
         milestone='1m',
         xlabel='Normalized Score',
-        xlabel_y_coordinate=-0.65,
+        xlabel_y_coordinate=-0.3,
     )
     # plt.tight_layout()
     # plt.show()
@@ -233,11 +257,14 @@ if __name__ == '__main__':
     scores = {
         "DQN": [],
         "PPO": [],
-        "Rainbow": [],
-        "PQN": []
+        "PQN": [],
+        # "Rainbow": [],
+        # "PPO+RND": [],
+        # "DQN+RND": [],
+        # "PQN+RND": [],
     }
 
-    for key in datadirs.keys():
+    for key in scores.keys():
         for i in range(len(datadirs[key])):
             df = pd.read_csv(datadirs[key][i])
             jobs = get_jobs(df)
@@ -270,7 +297,7 @@ if __name__ == '__main__':
         algorithms=algos,
         milestone='1m',
         xlabel='Normalized Score',
-        xlabel_y_coordinate=-0.65,
+        xlabel_y_coordinate=-0.3,
     )
     # plt.tight_layout()
     # plt.show()
@@ -291,11 +318,14 @@ if __name__ == '__main__':
     scores = {
         "DQN": [],
         "PPO": [],
-        "Rainbow": [],
-        "PQN": []
+        "PQN": [],
+        # "Rainbow": [],
+        # "PPO+RND": [],
+        # "DQN+RND": [],
+        # "PQN+RND": [],
     }
 
-    for key in datadirs.keys():
+    for key in scores.keys():
         for i in range(len(datadirs[key])):
             df = pd.read_csv(datadirs[key][i])
             jobs = get_jobs(df)
@@ -330,7 +360,7 @@ if __name__ == '__main__':
         algorithms=algos,
         milestone='1m',
         xlabel='Normalized Score',
-        xlabel_y_coordinate=-0.65,
+        xlabel_y_coordinate=-0.3,
     )
     # plt.tight_layout()
     # plt.show()

@@ -92,7 +92,7 @@ class Args:
     """Whether to use the old wrappers for the Atari environments"""
     num_layers: int = 1
     """The number of layers in the neural network"""
-    num_units: int = 64
+    num_units: int = 128
     """The number of units in the neural network"""
     use_layer_norm: bool = False
     """Whether to use layer normalization"""
@@ -118,18 +118,24 @@ def make_env(env_id, seed, idx, capture_video, run_name):
 class SoftQNetwork(nn.Module):
     def __init__(self, env):
         super().__init__()
-        self.fc1 = nn.Linear(
-            np.array(env.single_observation_space.shape).prod() + np.prod(env.single_action_space.shape),
-            256,
-        )
-        self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(256, 1)
+        layers = [
+                  nn.Linear(np.array(env.single_observation_space.shape).prod() + 
+                            np.prod(env.single_action_space.shape), args.num_units),
+                  nn.ReLU(),
+                  ]
+        for i in range(args.num_layers):
+            layers.append(nn.Linear(args.num_units, args.num_units))
+            layers.append(nn.ReLU())
+            if args.use_layer_norm:
+                layers.append(nn.LayerNorm(args.num_units))
+        layers.append(nn.Linear(args.num_units, 1))
+        self.critic = nn.Sequential(*layers)
 
     def forward(self, x, a):
         x = torch.cat([x, a], 1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        # for layer in layers:
+        #     x = layer(x)
+        x = self.critic(x)
         return x
 
 
@@ -140,10 +146,20 @@ LOG_STD_MIN = -5
 class Actor(nn.Module):
     def __init__(self, env):
         super().__init__()
-        self.fc1 = nn.Linear(np.array(env.single_observation_space.shape).prod(), 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.fc_mean = nn.Linear(256, np.prod(env.single_action_space.shape))
-        self.fc_logstd = nn.Linear(256, np.prod(env.single_action_space.shape))
+
+        layers = [
+                  nn.Linear(np.array(env.single_observation_space.shape).prod(), args.num_units),
+                  nn.ReLU(),
+                  ]
+        # self.fc2 = nn.Linear(256, 256)
+        for i in range(args.num_layers):
+            layers.append(nn.Linear(args.num_units, args.num_units))
+            layers.append(nn.ReLU())
+            if args.use_layer_norm:
+                layers.append(nn.LayerNorm(args.num_units))
+        self.encoder = nn.Sequential(*layers)
+        self.fc_mean = nn.Linear(args.num_units, np.prod(env.single_action_space.shape))
+        self.fc_logstd = nn.Linear(args.num_units, np.prod(env.single_action_space.shape))
         # action rescaling
         self.register_buffer(
             "action_scale",
@@ -161,8 +177,7 @@ class Actor(nn.Module):
         )
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = self.encoder(x)
         mean = self.fc_mean(x)
         log_std = self.fc_logstd(x)
         log_std = torch.tanh(log_std)
@@ -284,7 +299,7 @@ poetry run pip install "stable_baselines3==2.0.0a1"
 
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
-    last_global_step_plot = 0
+    last_log_step = 0
     for global_step in range(args.total_timesteps):
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
@@ -305,17 +320,19 @@ poetry run pip install "stable_baselines3==2.0.0a1"
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
             for info in infos["final_info"]:
-                if info is not None:
-                    gap_stats.add(info["episode"])
-                    if global_step - last_global_step_plot >= args.plot_freq:
-                        last_global_step_plot = global_step
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
-                        #====================== optimality gap computation logging ======================#
-                        gap_stats.plot_gap(writer, global_step)
-                        #====================== optimality gap computation logging ======================#
-                        break
+                # Skip the envs that are not done
+                if "episode" not in info:
+                    continue
+                gap_stats.add(info["episode"])
+                if (global_step - last_log_step) > args.plot_freq*5:
+                    last_log_step = global_step
+                    print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                    writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                    writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                    #====================== optimality gap computation logging ======================#
+                    gap_stats.plot_gap(writer, global_step)
+                    #====================== optimality gap computation logging ======================#
+                    break
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
@@ -397,12 +414,8 @@ poetry run pip install "stable_baselines3==2.0.0a1"
                 writer.add_scalar("losses/qf_loss", qf_loss.item() / 2.0, global_step)
                 writer.add_scalar("losses/actor_loss", actor_loss.item(), global_step)
                 writer.add_scalar("losses/alpha", alpha, global_step)
-                print("SPS:", int(global_step / (time.time() - start_time)))
-                writer.add_scalar(
-                    "charts/SPS",
-                    int(global_step / (time.time() - start_time)),
-                    global_step,
-                )
+                # print("SPS:", int(global_step / (time.time() - start_time)))
+                writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
                 if args.autotune:
                     writer.add_scalar("losses/alpha_loss", alpha_loss.item(), global_step)
                 data_ = rb.sample(10000)

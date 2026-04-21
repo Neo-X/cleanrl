@@ -60,6 +60,7 @@ dependencies = [
     "markdown==3.3.7",
     "markupsafe==2.1.2",
     "matplotlib==3.6.0",
+    "milatools>=0.0.18",
     "minatar",
     "moviepy==1.0.3",
     "mpmath==1.3.0",

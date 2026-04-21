@@ -104,7 +104,7 @@ class Args:
     """The directory to save the logs"""
     job_id : int = 0
     """The job id for the slurm job"""
-intrinsic_reward_scale: float = 1.0
+    intrinsic_reward_scale: float = 1.0
     """The scale of the intrinsic reward"""
     old_wrappers: bool = False
     """Whether to use the old wrappers for the Atari environments"""

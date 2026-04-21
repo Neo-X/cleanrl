@@ -123,7 +123,7 @@ dependencies = [
     "tyro==0.5.10",
     "tzdata==2025.2",
     "urllib3==1.26.15",
-    "wandb==0.13.11",
+    "wandb>=0.16.0",
     "werkzeug==2.2.3",
     "wrapt==2.0.1",
 ]

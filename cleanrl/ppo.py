@@ -74,6 +74,8 @@ class Args:
     """the K epochs to update the policy"""
     norm_adv: bool = True
     """Toggles advantages normalization"""
+    zero_positive_advantages: bool = False
+    """If toggled, clamp policy advantages so any positive values become 0"""
     clip_coef: float = 0.2
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
@@ -349,6 +351,7 @@ if __name__ == "__main__":
         b_values = values.reshape(-1)
 
         # Optimizing the policy and value network
+        # print("Optimizing...")
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for epoch in range(args.update_epochs):
@@ -368,8 +371,12 @@ if __name__ == "__main__":
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
                 mb_advantages = b_advantages[mb_inds]
+                if args.zero_positive_advantages:
+                    mb_advantages = torch.clamp(mb_advantages, max=0.0)
+                    args.norm_adv = False
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                    
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio

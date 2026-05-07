@@ -123,12 +123,12 @@ def deNan(data_):
     return data_
 
 def get_data_frame(df, key, res=10, jobs=None, 
-                   max=10000000000, global_key=None, scale_=None):
+                   max=10000000000, global_key=None, scale_=None, key_suffix=" - global_step"):
     
     plot_data = []
     for i in range(len(jobs)): 
         if global_key is None:
-            key__ =   jobs[i]+" - global_step"
+            key__ =   jobs[i]+key_suffix
         else:
             key__ =   global_key
         len_ = min(len(df[key__]), max)
@@ -158,17 +158,17 @@ def get_data_frame(df, key, res=10, jobs=None,
     return plot_data
 
 ## This function will process the data from a csv file, checking the colum keys and return the strings for those keys
-def get_jobs(df):
+def get_jobs(df, tag=" - charts/global_optimality_gap"):
     keys = []
     for i in range(len(df.columns)):
         key = df.columns[i]
-        if ' - charts/global_optimality_gap' in key and "__MIN" not in key and "__MAX" not in key and (len(df[key]) > 10):
+        if tag in key and "__MIN" not in key and "__MAX" not in key and (len(df[key]) > 10):
             #remove the end of the key
-            key_ = key.split(' - charts/global_optimality_gap')[0]
+            key_ = key.split(tag)[0]
             keys.append(key_)
     return keys
 
-def add_plot(ax, df, key, label, res, jobs, color, lw):
+def add_plot(ax, df, key, label, res, jobs, color, lw, key_suffix=" - global_step"):
     """
     Docstring for add_plot
     
@@ -181,7 +181,7 @@ def add_plot(ax, df, key, label, res, jobs, color, lw):
     :param color: Description
     :param lw: Description
     """
-    plot_data = get_data_frame(df, key=key, res=res, jobs=jobs)
+    plot_data = get_data_frame(df, key=key, res=res, jobs=jobs, key_suffix=key_suffix)
     plot_data = plot_data.rename(columns={0: 'Steps', 1: label})
     sns.lineplot(data=plot_data, x='Steps', y=label, ax=ax, label=label, c=color, linewidth=lw)
     ax.lines[-1].set_linestyle(linestyle[label])

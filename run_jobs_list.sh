@@ -3,10 +3,10 @@
 
 ## Discrete RL Envs
 strings=(
-    "MinAtar/SpaceInvaders-v0"
+    # "MinAtar/SpaceInvaders-v0"
     # "MinAtar/Breakout-v0"
     # "MinAtar/Asterix-v0"
-    "MinAtar/Seaquest-v0"
+    # "MinAtar/Seaquest-v0"
     # "MinAtar/Freeway-v0"
     "LunarLander-v2"
 )
@@ -36,7 +36,7 @@ done
 ##Continuous RL envs
 strings=(
     # "Walker2d-v4"
-    "HalfCheetah-v4"
+    # "HalfCheetah-v4"
     # "Humanoid-v4"
     # "BipedalWalker-v3"
 )

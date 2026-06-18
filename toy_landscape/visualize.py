@@ -214,11 +214,15 @@ def plot_ppo_landscape(writer, global_step, args, agent, gap_stats, device, save
             t = torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
             return int(agent.get_action_deterministic(t).item())
 
+        # Stochastic policy: PPO agents expose get_action_and_value; DQN-style
+        # agents (QNetwork) only have get_action_deterministic, so fall back to it.
         @torch.no_grad()
         def stoch_policy(obs: np.ndarray) -> int:
             t = torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
-            action, _, _, _ = agent.get_action_and_value(t)
-            return int(action.item())
+            if hasattr(agent, "get_action_and_value"):
+                action, _, _, _ = agent.get_action_and_value(t)
+                return int(action.item())
+            return int(agent.get_action_deterministic(t).item())
 
         # pi_hat*: replay the best trajectory gap_stats has stored, if available.
         best_x = None

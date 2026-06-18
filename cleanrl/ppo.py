@@ -311,7 +311,7 @@ if __name__ == "__main__":
                 for info in infos["final_info"]:
                     if info and "episode" in info:
                         gap_stats.add(info["episode"])
-                        if global_step - last_global_step >= (args.plot_freq * 10000):
+                        if global_step - last_global_step >= (args.plot_freq * 100):
                             last_global_step = global_step
                             print(f"global_step={global_step}, episodic_return={info['episode']['r']}, iteration={iteration}")
                             writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
@@ -319,14 +319,6 @@ if __name__ == "__main__":
                             #====================== optimality gap computation logging ======================#
                             gap_stats.plot_gap(writer, global_step)
                             #====================== optimality gap computation logging ======================#
-                            #====================== toy landscape state-space plot (no-op for other envs) ======================#
-                            try:
-                                from toy_landscape import visualize as toy_viz
-                                toy_viz.plot_ppo_landscape(writer, global_step, args, agent, gap_stats, device)
-                            except Exception as _e:
-                                pass
-                            #====================== toy landscape state-space plot ======================#
-
 
         # ===================== compute the intrinsic rewards ===================== #
         # get real next observations
@@ -451,6 +443,13 @@ if __name__ == "__main__":
                 for key, value in irs.metrics.items():
                     writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
                     irs.metrics[key] = []
+            #====================== toy landscape state-space plot (no-op for other envs) ======================#
+            try:
+                from toy_landscape import visualize as toy_viz
+                toy_viz.plot_ppo_landscape(writer, global_step, args, agent, gap_stats, device)
+            except Exception as _e:
+                pass
+            #====================== toy landscape state-space plot ======================#
 
 
     envs.close()

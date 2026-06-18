@@ -28,9 +28,9 @@ import gymnasium as gym
 from gymnasium import spaces
 
 
-# Each preset is a list of (center, width, height) Gaussian bumps.  Heights
-# increase left-to-right so the global optimum is the right-most peak, and the
-# agent starts at the left-most (lowest) peak.
+# Each preset is a list of (center, width, height) Gaussian bumps.
+# Negative heights are allowed and create reward troughs (valleys where performance
+# drops during a difficult learning transition).
 REWARD_PRESETS: dict[str, list[tuple[float, float, float]]] = {
     # Classic local optimum: a low near peak and a tall far peak, one valley
     # between them that the agent must cross.
@@ -42,6 +42,40 @@ REWARD_PRESETS: dict[str, list[tuple[float, float, float]]] = {
     # Deceptive: the local peak nearest the start is *wide* and easy to reach,
     # the global peak is narrow and far -> exploration is strongly punished.
     "deceptive": [(2.0, 1.2, 1.4), (8.5, 0.35, 2.6)],
+    # Inspired by MinAtar Space Invaders -- the environment where DQN struggles most.
+    #
+    # Three behavioral regimes separated by a deceptive structure:
+    #   Peak 1 (x≈2): Wide "dodge-only" local optimum.  The agent learns to avoid
+    #     enemy bullets and survives longer, but never fires.  Wide (σ=1.1) because
+    #     dodge behaviour is robust and easy to stumble into; DQN reliably gets
+    #     stuck here.  Mirrors the SI reward structure: no penalty for not shooting,
+    #     so surviving feels like success.
+    #   Peak 2 (x≈5.5): "Random shooter" medium peak.  Agent fires frequently,
+    #     gets some kills (+1 per alien), but can't reliably clear waves.
+    #   Trough (x≈7.5): *Negative* Gaussian -- the "learning-to-aim" valley.
+    #     Models the performance drop when the agent tries to learn shot-cooldown
+    #     timing (cooldown=5 in SI) and precise positioning under aliens.  During
+    #     this phase the agent fires at wrong times, over-commits, and dies more;
+    #     its average return falls before it rises again.  This is the barrier DQN
+    #     cannot cross.
+    #   Peak 3 (x≈9): Narrow "precise aim + cooldown timing" global optimum.
+    #     Requires coordinating position under the nearest alien AND respecting the
+    #     shot cooldown -- the two skills that interact in SI to produce high scores.
+    #     Narrow (σ=0.33) because maintaining this precise behaviour is hard.
+    "space_invaders": [
+        (2.0,  1.1,   1.2),   # wide "dodge-only" local optimum
+        (5.5,  0.45,  1.9),   # "random shooter" medium peak
+        (7.5,  0.55,  -1.0),  # negative trough: "learning-to-aim" performance drop
+        (9.0,  0.33,  3.2),   # narrow "precise aim + timing" global optimum
+    ],
+}
+
+# Per-preset overrides for env constructor kwargs (start position, horizon, etc.).
+# Any key absent here falls back to the LandscapeEnv defaults.
+PRESET_CONFIG: dict[str, dict] = {
+    # Space Invaders episodes are long; give the agent time to accumulate kills.
+    # Start near the dodge peak (x=2) as a freshly initialised DQN would.
+    "space_invaders": {"start": 2.0, "horizon": 200, "step_size": 0.25},
 }
 
 
@@ -164,21 +198,24 @@ def register_envs() -> None:
     Also registers ``Toy/Landscape-v0`` as an alias for the default preset so the
     env can be selected with ``--env_id Toy/Landscape-v0`` in ``cleanrl/ppo.py``.
     """
-    horizon = 50
+    default_horizon = 50
     for preset in REWARD_PRESETS:
         env_id = f"Toy/Landscape-{preset}-v0"
         if env_id in gym.registry:
             continue
+        cfg = PRESET_CONFIG.get(preset, {})
+        horizon = cfg.get("horizon", default_horizon)
+        kwargs = {"preset": preset, "horizon": horizon, **cfg}
         gym.register(
             id=env_id,
-            entry_point=LandscapeEnv,  # pass the class directly: import-path agnostic
+            entry_point=LandscapeEnv,
             max_episode_steps=horizon,
-            kwargs={"preset": preset, "horizon": horizon},
+            kwargs=kwargs,
         )
     if "Toy/Landscape-v0" not in gym.registry:
         gym.register(
             id="Toy/Landscape-v0",
             entry_point=LandscapeEnv,
-            max_episode_steps=horizon,
-            kwargs={"preset": "three_peaks", "horizon": horizon},
+            max_episode_steps=default_horizon,
+            kwargs={"preset": "three_peaks", "horizon": default_horizon},
         )

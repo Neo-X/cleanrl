@@ -31,6 +31,12 @@ sys.path.append("../")
 from rllte.xplore.reward import RND
 # ===================== load the reward module ===================== #
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    import toy_landscape  # noqa: F401  registers Toy/Landscape-* envs with Gymnasium
+except Exception as e:
+    print(f"[toy_landscape] not registered: {e}")
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -321,6 +327,13 @@ if __name__ == "__main__":
                         for key, value in irs.metrics.items():
                             writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
                             irs.metrics[key] = []
+                    #====================== toy landscape state-space plot (no-op for other envs) ======================#
+                    try:
+                        from toy_landscape import visualize as toy_viz
+                        toy_viz.plot_ppo_landscape(writer, global_step, args, q_network, gap_stats, device)
+                    except Exception as _e:
+                        pass
+                    #====================== toy landscape state-space plot ======================#
 
 
                 # optimize the model

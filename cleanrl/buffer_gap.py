@@ -188,7 +188,7 @@ class BufferGapV2():
                 if "final_info" in infos: ## This final info logic is not very clear
                     for info in infos["final_info"]:
                         if info and "episode" in info:
-                            returns.extend(info['episode']['r'])
+                            returns.extend(np.atleast_1d(info['episode']['r']))
                             break
                     break 
                             # pass

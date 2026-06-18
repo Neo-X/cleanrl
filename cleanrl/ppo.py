@@ -30,6 +30,14 @@ from rllte.xplore.reward import RND, E3B
 # ===================== load the reward module ===================== #
 import buffer_gap
 
+# Register the toy multimodal-landscape envs (Toy/Landscape-*-v0) so they can be
+# selected with --env_id.  Lives at the repo root in toy_landscape/.
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    import toy_landscape  # noqa: F401  (import has the side effect of registering envs)
+except Exception as e:
+    print(f"[toy_landscape] not registered: {e}")
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -311,6 +319,13 @@ if __name__ == "__main__":
                             #====================== optimality gap computation logging ======================#
                             gap_stats.plot_gap(writer, global_step)
                             #====================== optimality gap computation logging ======================#
+                            #====================== toy landscape state-space plot (no-op for other envs) ======================#
+                            try:
+                                from toy_landscape import visualize as toy_viz
+                                toy_viz.plot_ppo_landscape(writer, global_step, args, agent, gap_stats, device)
+                            except Exception as _e:
+                                pass
+                            #====================== toy landscape state-space plot ======================#
 
 
         # ===================== compute the intrinsic rewards ===================== #

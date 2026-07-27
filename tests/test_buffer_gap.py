@@ -122,44 +122,76 @@ def _run(cmd):
     subprocess.run(cmd, shell=True, check=True, cwd=REPO_ROOT)
 
 
-def test_ppo_smoke():
+def _newest_scalar_tags(search_root):
+    """Find the most recently modified tensorboard event file under search_root
+    and return the set of scalar tags it contains."""
+    import glob as _glob
+
+    from tensorboard.backend.event_processing import event_accumulator
+
+    event_files = _glob.glob(os.path.join(search_root, "**", "events.out.tfevents.*"), recursive=True)
+    assert event_files, f"no tensorboard event file found under {search_root!r}"
+    newest = max(event_files, key=os.path.getmtime)
+    ea = event_accumulator.EventAccumulator(os.path.dirname(newest))
+    ea.Reload()
+    return ea.Tags()["scalars"]
+
+
+def _assert_k_star_logged(search_root):
+    tags = _newest_scalar_tags(search_root)
+    assert "charts/k_star" in tags, "k_star was not logged: gap_stats._returns may never have been populated"
+    assert "charts/alpha_star" in tags
+
+
+def test_ppo_smoke(tmp_path):
     # num_envs * num_steps must exceed 500: ppo.py's "reward top 95%" logging does a
     # fixed torch.topk(..., 500) over the flattened rollout, independent of buffer_gap.
+    log_dir = str(tmp_path) + os.sep
     _run(
         "python cleanrl/ppo.py --env-id MinAtar/Breakout-v0 --num-envs 4 --num-steps 128 "
-        "--total-timesteps 1024 --plot-freq 1 --return-buffer-size 50"
+        f"--total-timesteps 1024 --plot-freq 1 --return-buffer-size 50 --log-dir {log_dir}"
     )
+    _assert_k_star_logged(log_dir)
 
 
-def test_dqn_smoke():
+def test_dqn_smoke(tmp_path):
+    log_dir = str(tmp_path) + os.sep
     _run(
-        "python cleanrl/dqn.py --env-id MinAtar/Breakout-v1 --total-timesteps 600 "
-        "--learning-starts 100 --buffer-size 500 --return-buffer-size 50 --plot-freq 1 "
-        "--intrinsic-rewards \"\""
+        "python cleanrl/dqn.py --env-id MinAtar/Breakout-v1 --total-timesteps 2000 "
+        "--learning-starts 100 --buffer-size 1000 --return-buffer-size 50 --plot-freq 10 "
+        f"--intrinsic-rewards \"\" --log-dir {log_dir}"
     )
+    _assert_k_star_logged(log_dir)
 
 
-def test_ppo_continuous_action_smoke():
+def test_ppo_continuous_action_smoke(tmp_path):
+    log_dir = str(tmp_path) + os.sep
     _run(
         "python cleanrl/ppo_continuous_action.py --env-id Hopper-v4 --num-envs 2 --num-steps 64 "
-        "--total-timesteps 512 --plot-freq 1 --return-buffer-size 50"
+        f"--total-timesteps 1024 --plot-freq 1 --return-buffer-size 50 --log-dir {log_dir}"
     )
+    _assert_k_star_logged(log_dir)
 
 
 def test_sac_continuous_action_smoke():
+    # sac_continuous_action.py hardcodes SummaryWriter(f"runs/{run_name}"), ignoring
+    # --log-dir, so its output always lands under <repo>/cleanrl/runs/ regardless of cwd.
     _run(
-        "python cleanrl/sac_continuous_action.py --env-id Hopper-v4 --total-timesteps 600 "
-        "--learning-starts 100 --buffer-size 500 --return-buffer-size 50 --plot-freq 100"
+        "python cleanrl/sac_continuous_action.py --env-id Hopper-v4 --total-timesteps 2000 "
+        "--learning-starts 100 --buffer-size 1000 --return-buffer-size 50 --plot-freq 50"
     )
+    _assert_k_star_logged(os.path.join(REPO_ROOT, "runs"))
 
 
 @pytest.mark.skipif(
     subprocess.run("python -c \"import ale_py\"", shell=True, cwd=REPO_ROOT).returncode != 0,
     reason="ale-py / Atari ROMs not available",
 )
-def test_dqn_atari_smoke():
+def test_dqn_atari_smoke(tmp_path):
+    log_dir = str(tmp_path) + os.sep
     _run(
-        "python cleanrl/dqn_atari.py --env-id ALE/Pong-v5 --total-timesteps 600 "
-        "--learning-starts 100 --buffer-size 500 --return-buffer-size 50 --plot-freq 1 "
-        "--intrinsic-rewards \"\""
+        "python cleanrl/dqn_atari.py --env-id ALE/Pong-v5 --total-timesteps 2000 "
+        "--learning-starts 100 --buffer-size 1000 --return-buffer-size 50 --plot-freq 10 "
+        f"--intrinsic-rewards \"\" --log-dir {log_dir}"
     )
+    _assert_k_star_logged(log_dir)

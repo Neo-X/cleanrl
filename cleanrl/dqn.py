@@ -335,6 +335,12 @@ if __name__ == "__main__":
                     except Exception as _e:
                         pass
                     #====================== toy landscape state-space plot ======================#
+                    #====================== variance-target k* logging ===================== #
+                    if len(gap_stats._returns) > 1:
+                        k_result = gap_stats.compute_optimal_k(epsilon=0.10, method="closed_form")
+                        writer.add_scalar("charts/k_star", k_result["k_star"], global_step)
+                        writer.add_scalar("charts/alpha_star", k_result["alpha_star"], global_step)
+                    #====================== variance-target k* logging ===================== #
 
 
                 # optimize the model

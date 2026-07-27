@@ -428,6 +428,12 @@ poetry run pip install "stable_baselines3==2.0.0a1"
                     for key, value in irs.metrics.items():
                         writer.add_scalar(key, np.mean([val[1] for val in value]), global_step)
                         irs.metrics[key] = []
+                #====================== variance-target k* logging ===================== #
+                if len(gap_stats._returns) > 1:
+                    k_result = gap_stats.compute_optimal_k(epsilon=0.10, method="closed_form")
+                    writer.add_scalar("charts/k_star", k_result["k_star"], global_step)
+                    writer.add_scalar("charts/alpha_star", k_result["alpha_star"], global_step)
+                #====================== variance-target k* logging ===================== #
 
     envs.close()
     writer.close()

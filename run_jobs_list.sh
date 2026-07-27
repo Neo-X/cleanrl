@@ -3,19 +3,20 @@
 
 ## Discrete RL Envs
 strings=(
-    # "MinAtar/SpaceInvaders-v0"
-    # "MinAtar/Breakout-v0"
-    # "MinAtar/Asterix-v0"
-    # "MinAtar/Seaquest-v0"
-    # "MinAtar/Freeway-v0"
+    "MinAtar/SpaceInvaders-v0"
+    "MinAtar/Breakout-v0"
+    "MinAtar/Asterix-v0"
+    "MinAtar/Seaquest-v0"
+    "MinAtar/Freeway-v0"
     "LunarLander-v2"
 )
 for env in "${strings[@]}"; do
     echo "$env"
 ### Standard experiments
-    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 ' launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --no_norm_adv' launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --no_norm_adv --zero_positive_advantages' launch.sh
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/dqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 ' --time=2:59:00 launch.sh
+    sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4' --time=2:59:00 launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --no_norm_adv' launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --no_norm_adv --zero_positive_advantages' launch.sh
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4 --top_return_buff_percentage=0.20' launch.sh
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/pqn.py',ENV_ID=$env,ARGSS='--track --total_timesteps 25000000 --num_envs 4' --time=02:59:00 --cpus-per-task=8 launch.sh
     # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac.py',ENV_ID=$env,ARGSS='--track --total_timesteps 5000000' --time=02:59:00 --cpus-per-task=4 launch.sh
@@ -35,27 +36,27 @@ done
 
 ##Continuous RL envs
 strings=(
-    # "Walker2d-v4"
-    # "HalfCheetah-v4"
-    # "Humanoid-v4"
-    # "BipedalWalker-v3"
+    "Walker2d-v4"
+    "HalfCheetah-v4"
+    "Humanoid-v4"
+    "BipedalWalker-v3"
 )
 for env in "${strings[@]}"; do
     echo "$env"
-    # sbatch --array=1-10 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--total_timesteps 10000000' --cpus-per-task=4 --time=02:59:00 launch.sh
-#     sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=16 --num_envs 4 --total_timesteps 5000000' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_envs 4 --total_timesteps 5000000' --time=2:59:00 launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=16 --num_envs 4 --total_timesteps 5000000' launch.sh
 #     sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=32 --num_envs 4 --total_timesteps 5000000' launch.sh
 #     sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=64 --num_envs 4 --total_timesteps 5000000' launch.sh
 #     sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=128 --num_envs 4 --total_timesteps 5000000' launch.sh
 #     sbatch --array=1-5 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=256 --num_envs 4 --total_timesteps 5000000' launch.sh
 #     sbatch --array=1-4 --export=ALL,ALG='cleanrl/ppo_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=16 --use_layer_norm --num_envs 4 --total_timesteps 5000000' launch.sh
-    # sbatch --array=1-10 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--total_timesteps 2000000' --cpus-per-task=4 --time=5:55:00 launch.sh ## SAC Experiments Normal
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=8 --num_envs 4 --total_timesteps 2000000' launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=16 --num_envs 4 --total_timesteps 2000000' launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=32 --num_envs 4 --total_timesteps 2000000' launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=64 --num_envs 4 --total_timesteps 2000000' launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=128 --num_envs 4 --total_timesteps 2000000' launch.sh
-    sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=256 --num_envs 4 --total_timesteps 2000000' launch.sh
+    sbatch --array=1-10 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_envs 4 --total_timesteps 2000000' --time=2:59:00 launch.sh ## SAC Experiments Normal
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=8 --num_envs 4 --total_timesteps 2000000' launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=16 --num_envs 4 --total_timesteps 2000000' launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=32 --num_envs 4 --total_timesteps 2000000' launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=64 --num_envs 4 --total_timesteps 2000000' launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=128 --num_envs 4 --total_timesteps 2000000' launch.sh
+    # sbatch --array=1-5 --export=ALL,ALG='cleanrl/sac_continuous_action.py',ENV_ID=$env,ARGSS='--num_layers=256 --num_envs 4 --total_timesteps 2000000' launch.sh
 done
 
 ## Atari RL envs

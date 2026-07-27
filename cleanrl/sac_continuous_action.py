@@ -105,6 +105,7 @@ def make_env(env_id, seed, idx, capture_video, run_name):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
+            # env = gym.make(env_id, reset_noise_scale=0.0)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         import buffer_gap
         env = buffer_gap.RecordEpisodeStatisticsV2(env)

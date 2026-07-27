@@ -125,7 +125,8 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.make(env_id, render_mode="rgb_array", reset_noise_scale=0.0)
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = gym.make(env_id, reset_noise_scale=0.0)
+            env = gym.make(env_id)
+            # env = gym.make(env_id, reset_noise_scale=0.0)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation 
         env = gym.wrappers.ClipAction(env)

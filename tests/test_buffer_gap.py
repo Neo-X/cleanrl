@@ -183,10 +183,21 @@ def test_sac_continuous_action_smoke():
     _assert_k_star_logged(os.path.join(REPO_ROOT, "runs"))
 
 
-@pytest.mark.skipif(
-    subprocess.run("python -c \"import ale_py\"", shell=True, cwd=REPO_ROOT).returncode != 0,
-    reason="ale-py / Atari ROMs not available",
-)
+_ale_available = subprocess.run("python -c \"import ale_py\"", shell=True, cwd=REPO_ROOT).returncode == 0
+_needs_ale = pytest.mark.skipif(not _ale_available, reason="ale-py / Atari ROMs not available")
+
+
+@_needs_ale
+def test_ppo_atari_smoke(tmp_path):
+    log_dir = str(tmp_path) + os.sep
+    _run(
+        "python cleanrl/ppo_atari.py --env-id ALE/Pong-v5 --num-envs 2 --num-steps 128 "
+        f"--total-timesteps 2048 --plot-freq 1 --return-buffer-size 50 --log-dir {log_dir}"
+    )
+    _assert_k_star_logged(log_dir)
+
+
+@_needs_ale
 def test_dqn_atari_smoke(tmp_path):
     log_dir = str(tmp_path) + os.sep
     _run(

@@ -12,13 +12,13 @@
             "args": [
                 // "--intrinsic_rewards=RND", 
                 // "--intrinsic_reward_scale=0.2",
-                "--log_dir=runs/glen.berseth/", 
-                "--job_id=14",
+                // "--log_dir=runs/glen.berseth/", 
+                // "--job_id=14",
                 // "--num_layers=128"
                 // "--track",
-                // "--num_envs=1",
+                "--num_envs=1",
                 "--plot_freq=10",
-                "--old_wrappers",
+                // "--old_wrappers",
             ]
         }
     ]

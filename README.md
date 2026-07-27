@@ -35,3 +35,13 @@ Install cmake and zlib first
 sudo apt-get install cmake zlib1g-dev
 ```
 
+## Plotting with TensorBoard
+
+Runs log to `runs/` by default. To view training curves, including the exploitation gap metrics (`topBestFive`, `topBestLocal`, `policyAverage`) from `buffer_gap.py`:
+
+```
+uv run tensorboard --logdir runs
+```
+
+Then open `http://localhost:6006`.
+

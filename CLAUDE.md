@@ -27,7 +27,7 @@ This is a fork of [CleanRL](https://github.com/vwxyzjn/cleanrl) — single-file 
 - **`plotting/`** — scripts that turn logged runs into the paper's figures: per-task gap plots (`make_plots_*`), exploration/RND comparisons (`make_plots_all_exploration.py`), scaling (`make_plots_all_scaling*.py`), per-algorithm `rliable` aggregate plots (`rliable_plot*.py`), and GRPO/RLVR results (`make_plots_GRPO.py`).
 - **`run_jobs_list.sh`**, **`run_jobs.sh`** — SLURM (`sbatch`) launchers defining the experiment sweeps (environments × algorithms × seeds, plus RND and scaling variants). Experiments use **4–5 seeds**.
 - **`toy_landscape/`** — a controllable 1D multimodal-reward toy env (`Toy/Landscape-*-v0`; discrete actions, continuous state) for studying when RL policies get stuck in local optima, plus state-space (`V(s)`) visualization of the exploitation gap (`π^θ` vs `π̂*` vs `π*`). Registers with Gymnasium and plugs into `cleanrl/ppo.py` via a guarded hook. See `toy_landscape/README.md`.
-- **`data/`, `runs/`, `runs2/`** — logged experiment outputs.
+- **`data/`, `runs/`** — logged experiment outputs. `runs/` is the active logging/TensorBoard directory; `runs2/` is a legacy folder and should be ignored.
 - **`launch*.py`, `launch*.sh`, `cloud/`, `Dockerfile`** — cluster/Docker launch tooling.
 
 ## Environments studied

@@ -132,6 +132,7 @@ def make_env(env_id, idx, capture_video, run_name):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id, sticky_action_prob=0.0, difficulty_ramping=False)
+        # env = gym.wrappers.RecordEpisodeStatistics(env)
         import buffer_gap
         env = buffer_gap.RecordEpisodeStatisticsV2(env)
         return env
@@ -313,9 +314,9 @@ if __name__ == "__main__":
                         gap_stats.add(info["episode"])
                         if global_step - last_global_step >= (args.plot_freq * 100):
                             last_global_step = global_step
-                            print(f"global_step={global_step}, episodic_return={info['episode']['r']}, iteration={iteration}")
-                            writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                            writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                            print(f"global_step={global_step}, episodic_return={info['episode']['return']}, iteration={iteration}")
+                            writer.add_scalar("charts/episodic_return", info["episode"]["return"], global_step)
+                            writer.add_scalar("charts/episodic_length", info["episode"]["length"], global_step)
                             #====================== optimality gap computation logging ======================#
                             gap_stats.plot_gap(writer, global_step)
                             #====================== optimality gap computation logging ======================#
@@ -438,6 +439,12 @@ if __name__ == "__main__":
             writer.add_scalar("charts/return mean", rewards.mean(dim=0).mean(), global_step)
             # if torch.mean(torch.std(rewards, dim=0)) > 0:
             #     writer.add_scalar("charts/avg_reward_traj top 95%", torch.mean(torch.topk(rewards.mean(dim=0).flatten(), 2)[0]), global_step)
+            #====================== variance-target k* logging ===================== #
+            if len(gap_stats._returns) > 1:
+                k_result = gap_stats.compute_optimal_k(epsilon=0.10, method="closed_form")
+                writer.add_scalar("charts/k_star", k_result["k_star"], global_step)
+                writer.add_scalar("charts/alpha_star", k_result["alpha_star"], global_step)
+            #====================== variance-target k* logging ===================== #
             if args.intrinsic_rewards:
                 ## Here we iterate over the irs.metrics disctionary
                 for key, value in irs.metrics.items():

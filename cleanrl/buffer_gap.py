@@ -48,6 +48,86 @@ class BufferGap(ReplayBuffer):
 
 import heapq, collections, torch, gym
 
+
+def topk_mean_and_variance(returns: np.ndarray, k: int) -> "tuple[float, float]":
+    """Closed-form asymptotic variance of the top-k mean, treated as a sample
+    upper-CVaR estimator at level alpha = k / N (Rockafellar & Uryasev, 2000;
+    Trindade et al., 2007): Var(V_k) ~= (1/k) [sigma_tail^2 + (1-alpha)(V_k - q)^2].
+    """
+    n = len(returns)
+    k = max(1, min(k, n))
+    sorted_returns = np.sort(returns)[::-1]
+    top_k = sorted_returns[:k]
+    v_k = float(np.mean(top_k))
+    q = float(sorted_returns[k - 1])
+    alpha = k / n
+    sigma_tail_sq = float(np.var(top_k, ddof=1)) if k > 1 else 0.0
+    var_k = (sigma_tail_sq + (1 - alpha) * (v_k - q) ** 2) / k
+    return v_k, var_k
+
+
+def bootstrap_topk_variance(returns: np.ndarray, k: int, n_bootstrap: int = 200,
+                             rng: Optional[np.random.Generator] = None) -> "tuple[float, float]":
+    """Bootstrap estimate of Var(V_k): resample episodes from D^infty with
+    replacement and recompute the top-k mean each time.
+    """
+    rng = rng if rng is not None else np.random.default_rng()
+    n = len(returns)
+    k = max(1, min(k, n))
+    estimates = np.empty(n_bootstrap, dtype=np.float64)
+    for b in range(n_bootstrap):
+        sample = rng.choice(returns, size=n, replace=True)
+        estimates[b] = np.mean(np.sort(sample)[::-1][:k])
+    return float(estimates.mean()), float(estimates.var(ddof=1))
+
+
+def compute_optimal_k(
+    returns: Union[np.ndarray, List[float]],
+    k_grid: Optional[List[int]] = None,
+    epsilon: float = 0.10,
+    method: str = "bootstrap",
+    n_bootstrap: int = 200,
+    rng: Optional[np.random.Generator] = None,
+) -> Dict[str, Any]:
+    """Select k* = min{k : SE(V_k) / V_k <= epsilon}, the smallest (least
+    biased toward the mean) top-k fraction whose estimate is still
+    statistically reliable to within relative precision `epsilon`.
+
+    Returns a dict with `k_star`, `alpha_star` (k_star / N), and a per-k
+    diagnostics table (`table`: k -> {V_k, se, rel_se}) usable for a
+    variance-vs-k plot.
+    """
+    returns = np.asarray(returns, dtype=np.float64)
+    n = len(returns)
+    if k_grid is None:
+        fractions = [0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
+        k_grid = sorted({max(1, int(n * f)) for f in fractions if int(n * f) >= 1})
+        if not k_grid:
+            k_grid = [max(1, n)]
+
+    table: Dict[int, Dict[str, float]] = {}
+    k_star = k_grid[-1]
+    found = False
+    for k in k_grid:
+        if method == "bootstrap":
+            v_k, var_k = bootstrap_topk_variance(returns, k, n_bootstrap, rng)
+        else:
+            v_k, var_k = topk_mean_and_variance(returns, k)
+        se = float(np.sqrt(max(var_k, 0.0)))
+        rel_se = se / abs(v_k) if v_k != 0 else np.inf
+        table[k] = {"V_k": v_k, "se": se, "rel_se": rel_se}
+        if not found and rel_se <= epsilon:
+            k_star = k
+            found = True
+
+    return {
+        "k_star": k_star,
+        "alpha_star": k_star / n if n > 0 else 0.0,
+        "found": found,
+        "table": table,
+    }
+
+
 class BufferGapV2():
 
     def __init__(self, 
@@ -80,7 +160,7 @@ class BufferGapV2():
 
 
     def add(self, info):
-        return_ = info.get("r")
+        return_ = info.get("return", info.get("r"))
         self._returns.append(return_)
         plan = list(info.get("actions"))
     
@@ -105,6 +185,14 @@ class BufferGapV2():
             # Use heapreplace to pop the smallest (return, plan) and push the new one
             heapq.heappushpop(self._top_k_plans, new_heap_item)
 
+
+    def compute_optimal_k(self, epsilon: float = 0.10, method: str = "bootstrap",
+                          n_bootstrap: int = 200) -> Dict[str, Any]:
+        """Compute the variance-target k* (see `compute_optimal_k`) from the
+        returns currently stored in D^infty (self._returns).
+        """
+        return compute_optimal_k(list(self._returns), epsilon=epsilon, method=method,
+                                  n_bootstrap=n_bootstrap)
 
     def plot_gap(self, writer, step: int):
         """
@@ -134,6 +222,11 @@ class BufferGapV2():
                 writer.add_scalar("charts/replay_top_k_returns_stochastic", np.mean(returns), step)
             print(f"Stochastic Eval Return: {np.mean(returns)} at step {step}")
 
+            if len(self._returns) > 1:
+                k_result = self.compute_optimal_k(epsilon=0.10)
+                writer.add_scalar("charts/k_star", k_result["k_star"], step)
+                writer.add_scalar("charts/alpha_star", k_result["alpha_star"], step)
+
  
     def eval_deterministic(self, best=False) -> np.ndarray:
         """
@@ -162,7 +255,7 @@ class BufferGapV2():
                 if "final_info" in infos:
                     for info in infos["final_info"]:
                         if info and "episode" in info:
-                            return info['episode']['r']
+                            return info['episode']['return']
             returns.append(return_)
         # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
         return np.mean(returns)
@@ -188,7 +281,7 @@ class BufferGapV2():
                 if "final_info" in infos: ## This final info logic is not very clear
                     for info in infos["final_info"]:
                         if info and "episode" in info:
-                            returns.extend(np.atleast_1d(info['episode']['r']))
+                            returns.extend(np.atleast_1d(info['episode']['return']))
                             break
                     break 
                             # pass
@@ -298,9 +391,20 @@ class RecordEpisodeStatisticsV2(gym.Wrapper, gym.utils.RecordConstructorArgs):
         if num_dones and "episode" in infos:
             infos["episode"]["actions"] = np.where(dones, self.episode_actions, 0) if isinstance(self.env.action_space, gym.spaces.Discrete) else np.where(dones, self.episode_actions, 0)
             infos["episode"]["rewards"] = np.where(dones, self.episode_rewards, 0)
+            ### Add the return as well
+            infos["episode"]["return"] = np.where(dones, np.sum(self.episode_rewards, axis=0), 0)
+            ### add episode length as well
+            infos["episode"]["length"] = np.where(dones, len(self.episode_rewards), 0)
             
             # print( infos["episode"])
             # print("Actions", np.where(dones, self.episode_actions, 0))
+        elif num_dones:
+            infos["episode"] = {
+                "actions": np.where(dones, self.episode_actions, 0) if isinstance(self.env.action_space, gym.spaces.Discrete) else np.where(dones, self.episode_actions, 0),
+                "rewards": np.where(dones, self.episode_rewards, 0),
+                "return": np.where(dones, np.sum(self.episode_rewards, axis=0), 0),
+                "length": np.where(dones, len(self.episode_rewards), 0),
+            }
         infos['reward']= rewards
         return (
             observations,

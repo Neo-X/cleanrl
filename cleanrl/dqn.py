@@ -122,6 +122,7 @@ def make_env(env_id, seed, idx, capture_video, run_name):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
+        # env = gym.wrappers.RecordEpisodeStatistics(env)
         import buffer_gap
         env = buffer_gap.RecordEpisodeStatisticsV2(env)
         env.action_space.seed(seed)
@@ -273,9 +274,9 @@ if __name__ == "__main__":
                 if info and "episode" in info:
                     gap_stats.add(info["episode"])
                     if global_step % args.plot_freq == 0:
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                        print(f"global_step={global_step}, episodic_return={info['episode']['return']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["return"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["length"], global_step)
                         #====================== optimality gap computation logging ======================#
                         gap_stats.plot_gap(writer, global_step)
                         #====================== optimality gap computation logging ======================#

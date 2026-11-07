@@ -53,7 +53,7 @@ class Args:
     """The frequency of plotting"""
     wandb_project_name: str = "sub-optimality"
     """the wandb's project name"""
-    wandb_entity: str = "real-lab"
+    wandb_entity: str = "glen-berseth"
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
@@ -93,7 +93,7 @@ class Args:
     """timestep to start learning"""
     train_frequency: int = 10
     """the frequency of training"""
-    intrinsic_rewards: str = "RND"
+    intrinsic_rewards: str = False
     """Whether to use intrinsic rewards"""
     top_return_buff_percentage: float = 0.05
     """The top percent of the buffer for computing the optimality gap"""
@@ -113,6 +113,10 @@ class Args:
     """The number of units in the neural network"""
     use_layer_norm: bool = False
     """Whether to use layer normalization"""
+    save_dataset_fractions: tuple[float, ...] = ()
+    """fractions of total_timesteps at which to save the replay buffer + model as an offline dataset, e.g. 0.25 0.5 0.75 1.0"""
+    dataset_dir: str = ""
+    """where to save offline datasets (default: <log_dir>datasets/<run_name>)"""
 
 
 def make_env(env_id, seed, idx, capture_video, run_name):
@@ -177,6 +181,8 @@ if __name__ == "__main__":
             """
         )
     args = tyro.cli(Args)
+    if str(args.intrinsic_rewards).lower() in ("", "none", "false"):
+        args.intrinsic_rewards = False  # allow `--intrinsic_rewards none` from shell launchers
     # args.seed = int(os.environ.get("SLURM_PROCID", args.seed))
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     run_name = f"{args.env_id}__{args.exp_name}__{args.job_id}__{args.seed}__{int(time.time())}"
@@ -241,6 +247,11 @@ if __name__ == "__main__":
         device,
         handle_timeout_termination=False,
     )
+    #====================== offline dataset checkpoints (fixed-data interventions) ======================#
+    import offline_dataset
+    timeout_tracker = offline_dataset.TimeoutTracker(rb)
+    dataset_steps = {max(int(f * args.total_timesteps) - 1, 0) for f in args.save_dataset_fractions}
+    dataset_dir = args.dataset_dir or f"{args.log_dir or ''}datasets/{run_name}"
     start_time = time.time()
 
     # TRY NOT TO MODIFY: start the game
@@ -287,7 +298,11 @@ if __name__ == "__main__":
             if trunc:
                 real_next_obs[idx] = infos["final_observation"][idx]
 
+        timeout_tracker.record(truncations)
         rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
+        if global_step in dataset_steps:
+            offline_dataset.save_replay_dataset(dataset_dir, global_step + 1, rb, timeout_tracker, q_network, args,
+                                                gap_stats._returns)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
         obs = next_obs

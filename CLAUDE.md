@@ -24,6 +24,7 @@ This is a fork of [CleanRL](https://github.com/vwxyzjn/cleanrl) — single-file 
   - `ppo.py` (on-policy), `dqn.py` (value-based), `pqn.py` (parallelized DQN variant), `sac.py` (max-entropy, continuous control). These have been modified from upstream CleanRL to integrate gap tracking, RND intrinsic rewards (`--intrinsic_rewards RND`), and network scaling (`--num_layers`, ResNet vs. CNN, `--use_layer_norm`).
   - Other files (`c51*`, `td3*`, `ddpg*`, `rainbow_atari.py`, `*_jax.py`, etc.) are mostly upstream CleanRL and not central to the paper.
 - **`cleanrl/buffer_gap.py`** — the core contribution code. Wrappers (`RecordEpisodeStatisticsV2`, `SyncVectorEnvV2`) and the `BufferGap` / `BufferGapV2` classes that track every reward/return/trajectory and compute the `topBestFive` (best-ever) and `topBestLocal` (recent) estimators during training. This is the "wrapper" the paper's Implementation Details section describes. The default top percentage is `0.05` (`top_return_buff_percentage` arg / `_gap_percentage`).
+- **`cleanrl/offline/`** — fixed-data interventions for the rebuttal: discrete-action ports of CORL's BC-k%, Decision Transformer and CQL (+ offline/continued DQN, top-k oversampling) trained on replay buffers saved by `dqn.py --save_dataset_fractions` (`cleanrl/offline_dataset.py`). Launch on Mila/Narval/Rorqual with `launch_xm.py` (xm-slurm, builds the repo `Dockerfile`). See `cleanrl/offline/README.md`.
 - **`plotting/`** — scripts that turn logged runs into the paper's figures: per-task gap plots (`make_plots_*`), exploration/RND comparisons (`make_plots_all_exploration.py`), scaling (`make_plots_all_scaling*.py`), per-algorithm `rliable` aggregate plots (`rliable_plot*.py`), and GRPO/RLVR results (`make_plots_GRPO.py`).
 - **`run_jobs_list.sh`**, **`run_jobs.sh`** — SLURM (`sbatch`) launchers defining the experiment sweeps (environments × algorithms × seeds, plus RND and scaling variants). Experiments use **4–5 seeds**.
 - **`toy_landscape/`** — a controllable 1D multimodal-reward toy env (`Toy/Landscape-*-v0`; discrete actions, continuous state) for studying when RL policies get stuck in local optima, plus state-space (`V(s)`) visualization of the exploitation gap (`π^θ` vs `π̂*` vs `π*`). Registers with Gymnasium and plugs into `cleanrl/ppo.py` via a guarded hook. See `toy_landscape/README.md`.
@@ -36,7 +37,7 @@ Difficult exploration/exploitation tasks where the gap shows up: MinAtar (SpaceI
 
 ## Experiment tracking
 
-Runs log to Weights & Biases — project `sub-optimality`, entity `real-lab` (see `ppo.py` args). Pass `--track` to enable. TensorBoard summaries are also written.
+Runs log to Weights & Biases — project `sub-optimality`, entity `glen-berseth` (see `ppo.py` args; runs before 2026-11-07 are in `real-lab/sub-optimality`, another wandb organization, backed up on mila in `/network/projects/real-g-grp/wandb_backups/sub-optimality`). Pass `--track` to enable. TensorBoard summaries are also written.
 
 ## Key results the code supports
 

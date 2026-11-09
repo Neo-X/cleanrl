@@ -1519,7 +1519,7 @@ wheels = [
 [[package]]
 name = "minatar"
 version = "1.0.15"
-source = { git = "https://github.com/Neo-X/MinAtar.git#f68c657dad7679e14a0bc2a637a5927a8d01157e" }
+source = { git = "https://github.com/Neo-X/MinAtar.git#daf02a637e47b77da19892fb15cab46af20bc506" }
 dependencies = [
     { name = "cycler" },
     { name = "kiwisolver" },

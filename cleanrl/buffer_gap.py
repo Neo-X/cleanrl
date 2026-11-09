@@ -431,6 +431,23 @@ from gymnasium.vector.vector_env import VectorEnv
 __all__ = ["SyncVectorEnv"]
 
 
+def _reset_keep_global_rng(env, **kwargs):
+    """env.reset(**kwargs) without letting the env reseed numpy's *global* RNG.
+
+    The MinAtar fork calls np.random.seed(0) whenever it is reset with a seed. Since
+    SyncVectorEnvV2 resets with a seed after every episode, that reset the global RNG
+    each episode, and everything drawing from it (SB3 ReplayBuffer.sample, PPO/PQN
+    np.random.shuffle) replayed the same "random" sequence: DQN kept training on the
+    same few thousand replay slots. Seeded env resets stay deterministic; training
+    randomness is untouched.
+    """
+    state = np.random.get_state()
+    try:
+        return env.reset(**kwargs)
+    finally:
+        np.random.set_state(state)
+
+
 class SyncVectorEnvV2(VectorEnv):
     """Vectorized environment that serially runs multiple environments.
 
@@ -538,7 +555,7 @@ class SyncVectorEnvV2(VectorEnv):
             if options is not None:
                 kwargs["options"] = options
 
-            observation, info = env.reset(**kwargs)
+            observation, info = _reset_keep_global_rng(env, **kwargs)
             observations.append(observation)
             infos = self._add_info(infos, info, i)
 
@@ -570,7 +587,7 @@ class SyncVectorEnvV2(VectorEnv):
             if self._terminateds[i] or self._truncateds[i]:
                 old_observation, old_info = observation, info
                 # env.seed(self._seed)
-                observation, info = env.reset(seed=self._seed[i])
+                observation, info = _reset_keep_global_rng(env, seed=self._seed[i])
                 # observation, info = env.reset()
                 info["final_observation"] = old_observation
                 info["final_info"] = old_info

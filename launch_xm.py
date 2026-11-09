@@ -11,8 +11,12 @@ Run with the xm-slurm environment:
     # 1. online DQN, saving (model, replay buffer) at 25/50/75/100% of training
     ../xm-slurm/.venv/bin/python launch_xm.py collect --cluster narval --env_ids MinAtar/SpaceInvaders-v1
 
+    # same, with RND exploration (datasets go to datasets/<env>__dqn_rnd__*)
+    ../xm-slurm/.venv/bin/python launch_xm.py collect --cluster mila --rnd_scale 0.2
+
     # 2. every offline intervention on every dataset found on that cluster's scratch
     ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster narval --env_ids MinAtar/SpaceInvaders-v1
+    ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster mila --exp_name dqn_rnd --steps 10000000
 
     # print the jobs without building or submitting anything
     ../xm-slurm/.venv/bin/python launch_xm.py collect --cluster mila --dry_run
@@ -31,12 +35,19 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # cluster -> (ssh host alias, user, account, partition, scratch path on the host)
 CLUSTERS = {
-    "mila": dict(ssh="mila", user="glen.berseth", account=None, partition="long-cpu",
+    "mila": dict(ssh="mila", user="glen.berseth", account=None, partition="long-cpu", gpu_partition="long",
                  scratch="/network/scratch/g/glen.berseth"),
-    "narval": dict(ssh="narval", user="gberseth", account="rrg-gberseth", partition=None,
+    "narval": dict(ssh="narval", user="gberseth", account="rrg-gberseth", partition=None, gpu_partition=None,
                    scratch="/scratch/gberseth"),
-    "rorqual": dict(ssh="rorqual", user="gberseth", account="rrg-gberseth", partition=None,
+    "rorqual": dict(ssh="rorqual", user="gberseth", account="rrg-gberseth", partition=None, gpu_partition=None,
                     scratch="/scratch/gberseth"),
+}
+
+# Resource profiles. "gpu" mirrors launchGPU.sh (long partition, 1 GPU, 8 CPUs, 64G, 11:59, --no-requeue);
+# "cpu" mirrors launch.sh's long-cpu jobs. Jobs are never requeued: the scripts don't resume from checkpoints.
+PROFILES = {
+    "gpu": dict(gpus=1, cpus=8, ram_gib=64, hours=11 + 59 / 60),
+    "cpu": dict(gpus=0, cpus=4, ram_gib=16, hours=8),
 }
 
 # Offline interventions run on every dataset: (name, script, extra args)
@@ -70,17 +81,18 @@ def collect_jobs(a):
     jobs = []
     for env_id in a.env_ids:
         for seed in a.seeds:
-            jobs.append(["cleanrl/dqn.py", "--seed", str(seed), "--env_id", env_id,
-                         "--total_timesteps", str(a.total_timesteps),
+            rnd = ["--intrinsic_rewards", "RND", "--intrinsic_reward_scale", str(a.rnd_scale)] if a.rnd_scale > 0 else []
+            jobs.append(["cleanrl/dqn.py", "--seed", str(seed), "--env_id", env_id, "--exp_name", a.exp_name,
+                         "--total_timesteps", str(a.total_timesteps), *rnd,
                          "--save_dataset_fractions", *[str(f) for f in a.fractions],
-                         "--track", "--log_dir", "/scratch/", *a.extra])
+                         "--track", "--log_dir", "/scratch/", *a.cuda, *a.extra])
     return jobs
 
 
 def remote_datasets(a, env_id):
     """List datasets saved on the cluster's scratch, as paths inside the container."""
     c = CLUSTERS[a.cluster]
-    pattern = f"{c['scratch']}/datasets/{env_id}__dqn__*/step_*.npz"
+    pattern = f"{c['scratch']}/datasets/{env_id}__{a.exp_name}__*/step_*.npz"
     out = subprocess.run(["ssh", c["ssh"], f"ls {pattern}"], capture_output=True, text=True)
     paths = [p for p in out.stdout.split() if p.endswith(".npz")]
     return ["/scratch" + p[len(c["scratch"]):] for p in paths]
@@ -99,7 +111,7 @@ def offline_jobs(a):
         for _, script, vargs in variants:
             for seed in a.seeds:
                 jobs.append([script, "--dataset", ds, "--seed", str(seed), *vargs,
-                             "--track", "--log_dir", "/scratch/", *a.extra])
+                             "--track", "--log_dir", "/scratch/", *a.cuda, *a.extra])
     return jobs
 
 
@@ -111,21 +123,40 @@ def parse_args():
     p.add_argument("--seeds", type=int, nargs="+", default=None,
                    help="default: 1-5 for collect, 1-3 for offline")
     p.add_argument("--total_timesteps", type=int, default=10_000_000)
+    p.add_argument("--rnd_scale", type=float, default=0.0,
+                   help="collect: train DQN with RND at this intrinsic reward scale (0 = off; paper uses 0.2)")
+    p.add_argument("--exp_name", default=None,
+                   help="dataset/run name: collect writes datasets/<env>__<exp_name>__*, offline reads them "
+                        "(default: dqn, or dqn_rnd when --rnd_scale > 0)")
     p.add_argument("--fractions", type=float, nargs="+", default=[0.25, 0.5, 0.75, 1.0])
     p.add_argument("--steps", type=int, nargs="+", default=None,
                    help="offline: only datasets saved at these global steps")
     p.add_argument("--variants", nargs="+", default=None, choices=[v[0] for v in OFFLINE_VARIANTS],
                    help="offline: subset of interventions (default: all)")
-    p.add_argument("--hours", type=float, default=None, help="time limit (default: 12 collect, 8 offline)")
-    p.add_argument("--cpus", type=int, default=4)
-    p.add_argument("--ram_gib", type=int, default=16)
+    p.add_argument("--profile", choices=list(PROFILES), default=None,
+                   help="resources: gpu = launchGPU.sh (default for collect on non-MinAtar envs, e.g. Atari), "
+                        "cpu = launch.sh (default for MinAtar and for offline)")
+    p.add_argument("--hours", type=float, default=None, help="override the profile's time limit")
+    p.add_argument("--cpus", type=int, default=None, help="override the profile's CPUs")
+    p.add_argument("--ram_gib", type=int, default=None, help="override the profile's RAM")
     p.add_argument("--dry_run", action="store_true")
     a, extra = p.parse_known_args()
     a.extra = extra  # passed through to every job, e.g. --total_updates 100000
+    if a.exp_name is None:
+        a.exp_name = "dqn_rnd" if a.rnd_scale > 0 else "dqn"
     if a.seeds is None:
         a.seeds = [1, 2, 3, 4, 5] if a.stage == "collect" else [1, 2, 3]
-    if a.hours is None:
-        a.hours = 12 if a.stage == "collect" else 8
+    if a.profile is None:
+        minatar_only = all(e.startswith("MinAtar/") for e in a.env_ids)
+        a.profile = "gpu" if a.stage == "collect" and not minatar_only else "cpu"
+    prof = dict(PROFILES[a.profile])
+    if a.stage == "collect" and a.profile == "cpu":
+        prof["hours"] = 11 + 55 / 60  # launch.sh's limit; the non-RND MinAtar runs took ~1.5 h
+    a.gpus = prof["gpus"]
+    a.cpus = a.cpus or prof["cpus"]
+    a.ram_gib = a.ram_gib or prof["ram_gib"]
+    a.hours = a.hours or prof["hours"]
+    a.cuda = ["--cuda"] if a.gpus else []
     return a
 
 
@@ -140,7 +171,7 @@ def main(_):
     a = ARGS
     jobs = collect_jobs(a) if a.stage == "collect" else offline_jobs(a)
     c = CLUSTERS[a.cluster]
-    print(f"{len(jobs)} jobs on {a.cluster} ({a.cpus} CPU, {a.ram_gib} GiB, {a.hours} h):")
+    print(f"{len(jobs)} jobs on {a.cluster} ({a.gpus} GPU, {a.cpus} CPU, {a.ram_gib} GiB, {a.hours:.2f} h):")
     for j in jobs[:10]:
         print("  python " + shlex.join(j))
     if len(jobs) > 10:
@@ -172,13 +203,21 @@ def main(_):
                     env_vars=env_vars,
                 ),
             ])
+            req = dict(CPU=a.cpus, RAM=a.ram_gib * xm.GiB, cluster=cluster)
+            if a.gpus:
+                req["GPU"] = a.gpus
             executor = xm_slurm.Slurm(
-                requirements=xm_slurm.JobRequirements(CPU=a.cpus, RAM=a.ram_gib * xm.GiB, cluster=cluster),
+                requirements=xm_slurm.JobRequirements(**req),
                 time=dt.timedelta(hours=a.hours),
-                partition=c["partition"],
+                partition=c["gpu_partition"] if a.gpus else c["partition"],
+                requeue=False,
+                requeue_on_timeout=False,
             )
 
             async def make_job(wu, args):
+                # like launchGPU.sh's --job_id $SLURM_JOB_ID: tag runs/datasets with the experiment id
+                if args and args[0] == "cleanrl/dqn.py":
+                    args = [*args, "--job_id", str(experiment.experiment_id)]
                 await wu.add(xm.Job(executable=executable, executor=executor, args=args))
 
             wus = await experiment.add(make_job, [xm_slurm.JobArgs(args=j) for j in jobs])

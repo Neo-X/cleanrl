@@ -3,8 +3,8 @@
 
 ## Discrete RL Envs
 strings=(
-    # "MinAtar/SpaceInvaders-v0"
-    # "MinAtar/Breakout-v0"
+    "MinAtar/SpaceInvaders-v0"
+    "MinAtar/Breakout-v0"
     # "MinAtar/Asterix-v0"
     # "MinAtar/Seaquest-v0"
     # "MinAtar/Freeway-v0"
@@ -36,10 +36,10 @@ done
 
 ##Continuous RL envs
 strings=(
-    "Walker2d-v4"
-    "HalfCheetah-v4"
-    "Humanoid-v4"
-    "BipedalWalker-v3"
+    # "Walker2d-v4"
+    # "HalfCheetah-v4"
+    # "Humanoid-v4"
+    # "BipedalWalker-v3"
 )
 for env in "${strings[@]}"; do
     echo "$env"

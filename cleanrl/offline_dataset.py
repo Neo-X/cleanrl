@@ -11,6 +11,10 @@ Dataset file (``<dir>/step_<global_step>.npz``) keys, D4RL style, in time order:
     `return_buffer_size` online episodes, as used by BufferGapV2), and
     starts_mid_episode (True when the circular buffer had wrapped, so the first
     trajectory of each env is truncated at its start).
+Atari (frame-stacked uint8 observations, memory-optimised SB3 buffer): only the newest frame of
+each step is stored, as ``frames`` (N, H, W), with ``frame_stack`` = 4; no observations or
+next_observations. cleanrl/offline/common.py rebuilds the stacks from the episode boundaries
+(FrameStack repeats the first frame of an episode). Saves ~4x (x2 for next_observations) the space.
 Model file: ``<dir>/step_<global_step>_model.pt`` with the state_dict and the args needed
 to rebuild the network and the environment.
 """
@@ -58,9 +62,19 @@ def save_replay_dataset(save_dir, global_step, rb, timeout_tracker, model, args,
         end = (e + 1) * T - 1
         if not terminals[end]:
             timeouts[end] = True
+    frame_stacked = rb.observations.ndim == 5  # (buffer, n_envs, stack, H, W)
+    if frame_stacked:
+        obs_data = dict(frames=_time_ordered(rb, rb.observations[:, :, -1]),
+                        frame_stack=np.array(rb.observations.shape[2]))
+    else:
+        if getattr(rb, "optimize_memory_usage", False):
+            next_obs = np.roll(rb.observations, -1, axis=0)  # SB3 stores next_obs in the following row
+        else:
+            next_obs = rb.next_observations
+        obs_data = dict(observations=_time_ordered(rb, rb.observations),
+                        next_observations=_time_ordered(rb, next_obs))
     data = dict(
-        observations=_time_ordered(rb, rb.observations),
-        next_observations=_time_ordered(rb, rb.next_observations),
+        **obs_data,
         actions=_time_ordered(rb, rb.actions).reshape(-1).astype(np.int64),
         rewards=_time_ordered(rb, rb.rewards).astype(np.float32),
         terminals=terminals,

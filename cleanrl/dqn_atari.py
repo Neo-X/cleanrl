@@ -98,6 +98,9 @@ class Args:
     top_return_buff_percentage: float = 0.05
     """The top percent of the buffer for computing the optimality gap"""
     return_buffer_size: int = 1000
+    save_dataset_fractions: tuple[float, ...] = ()
+    """save (replay buffer, model) at these fractions of total_timesteps for the offline interventions"""
+    dataset_dir: str = ""
     """The size of the return buffer for computing the optimality gap"""
     network_type: str = False
     """The type of the network to use"""
@@ -267,6 +270,11 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
         optimize_memory_usage=True,
         handle_timeout_termination=False,
     )
+    #====================== offline dataset checkpoints (fixed-data interventions) ======================#
+    import offline_dataset
+    timeout_tracker = offline_dataset.TimeoutTracker(rb)
+    dataset_steps = {max(int(f * args.total_timesteps) - 1, 0) for f in args.save_dataset_fractions}
+    dataset_dir = args.dataset_dir or f"{args.log_dir or ''}datasets/{run_name}"
     start_time = time.time()
 
     # TRY NOT TO MODIFY: start the game
@@ -310,7 +318,11 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
         for idx, trunc in enumerate(truncations):
             if trunc:
                 real_next_obs[idx] = infos["final_observation"][idx]
+        timeout_tracker.record(truncations)
         rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
+        if global_step in dataset_steps:
+            offline_dataset.save_replay_dataset(dataset_dir, global_step + 1, rb, timeout_tracker, q_network, args,
+                                                gap_stats._returns)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
         obs = next_obs

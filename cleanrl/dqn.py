@@ -99,6 +99,8 @@ class Args:
     """The top percent of the buffer for computing the optimality gap"""
     return_buffer_size: int = 1000
     """The size of the return buffer for computing the optimality gap"""
+    eval_max_steps: int = 1000
+    """max steps of the deterministic evaluation episode for envs without a time limit (e.g. MinAtar)"""
     log_dir: str = False
     """The directory to save the logs"""
     job_id : int = 0

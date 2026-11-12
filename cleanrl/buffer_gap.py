@@ -239,7 +239,9 @@ class BufferGapV2():
         # q_values = self._policy(torch.Tensor(obs).to(self._device))
         
         max_t = len(self._best_traj) if best==True else self._envs.envs[0].spec.max_episode_steps
-        max_t = 100000 if max_t==None else max_t
+        # Envs without a time limit (MinAtar): cap the deterministic evaluation at args.eval_max_steps
+        # (default 1000, as for the paper's runs); an episode still alive at the cap logs its return so far
+        max_t = getattr(self._args, "eval_max_steps", 1000) if max_t==None else max_t
         samples_ = 1
         returns = []
         for j in range(samples_):

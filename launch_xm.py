@@ -82,15 +82,13 @@ def get_wandb_key():
 
 
 def collect_jobs(a):
-    jobs = []
-    for env_id in a.env_ids:
-        for seed in a.seeds:
-            rnd = ["--intrinsic_rewards", "RND", "--intrinsic_reward_scale", str(a.rnd_scale)] if a.rnd_scale > 0 else []
-            jobs.append([f"cleanrl/{a.algo}.py", "--seed", str(seed), "--env_id", env_id, "--exp_name", a.exp_name,
-                         "--total_timesteps", str(a.total_timesteps), *rnd,
-                         *(["--save_dataset_fractions", *[str(f) for f in a.fractions]] if a.stage == "collect" else []),
-                         "--track", "--log_dir", "/scratch/", *a.cuda, *a.extra])
-    return jobs
+    """One xm-slurm job array: fixed args shared by every trial, plus the swept (env_id, seed) trials."""
+    rnd = ["--intrinsic_rewards", "RND", "--intrinsic_reward_scale", str(a.rnd_scale)] if a.rnd_scale > 0 else []
+    fixed = [f"cleanrl/{a.algo}.py", "--exp_name", a.exp_name, "--total_timesteps", str(a.total_timesteps), *rnd,
+             *(["--save_dataset_fractions", *[str(f) for f in a.fractions]] if a.stage == "collect" else []),
+             "--track", "--log_dir", "/scratch/", *a.cuda, *a.extra]
+    sweep = [{"env_id": env_id, "seed": seed} for env_id in a.env_ids for seed in a.seeds]
+    return [(fixed, sweep)]
 
 
 def remote_datasets(a, env_id):
@@ -111,13 +109,10 @@ def offline_jobs(a):
         datasets = [d for d in datasets if any(d.endswith(f"step_{s}.npz") for s in a.steps)]
     print(f"Found {len(datasets)} datasets on {a.cluster}")
     variants = [v for v in OFFLINE_VARIANTS if not a.variants or v[0] in a.variants]
-    jobs = []
-    for ds in datasets:
-        for _, script, vargs in variants:
-            for seed in a.seeds:
-                jobs.append([script, "--dataset", ds, "--seed", str(seed), *vargs,
-                             "--track", "--log_dir", "/scratch/", *a.cuda, *a.extra])
-    return jobs
+    sweep = [{"dataset": ds, "seed": seed} for ds in datasets for seed in a.seeds]
+    # one job array per intervention (each runs a different script with different fixed args)
+    return [([script, *vargs, "--track", "--log_dir", "/scratch/", *a.cuda, *a.extra], sweep)
+            for _, script, vargs in variants]
 
 
 def parse_args():
@@ -179,14 +174,15 @@ def main(_):
     from xmanager import xm
 
     a = ARGS
-    jobs = offline_jobs(a) if a.stage == "offline" else collect_jobs(a)
+    arrays = offline_jobs(a) if a.stage == "offline" else collect_jobs(a)
+    arrays = [(fixed, sweep) for fixed, sweep in arrays if sweep]
     c = CLUSTERS[a.cluster]
-    print(f"{len(jobs)} jobs on {a.cluster} ({a.gpus} GPU, {a.cpus} CPU, {a.ram_gib} GiB, {a.hours:.2f} h):")
-    for j in jobs[:10]:
-        print("  python " + shlex.join(j))
-    if len(jobs) > 10:
-        print(f"  ... and {len(jobs) - 10} more")
-    if a.dry_run or not jobs:
+    n = sum(len(sweep) for _, sweep in arrays)
+    print(f"{n} jobs in {len(arrays)} job array(s) on {a.cluster} "
+          f"({a.gpus} GPU, {a.cpus} CPU, {a.ram_gib} GiB, {a.hours:.2f} h):")
+    for fixed, sweep in arrays:
+        print(f"  python {shlex.join(fixed)}  x {len(sweep)} trials, e.g. {sweep[0]}")
+    if a.dry_run or not arrays:
         return
 
     import xm_slurm
@@ -224,13 +220,18 @@ def main(_):
                 requeue_on_timeout=False,
             )
 
-            async def make_job(wu, args):
+            def make_job(fixed):
                 # like launchGPU.sh's --job_id $SLURM_JOB_ID: tag runs/datasets with the experiment id
-                if args and args[0].startswith("cleanrl/dqn"):
-                    args = [*args, "--job_id", str(experiment.experiment_id)]
-                await wu.add(xm.Job(executable=executable, executor=executor, args=args))
+                if fixed[0].startswith("cleanrl/dqn"):
+                    fixed = [*fixed, "--job_id", str(experiment.experiment_id)]
 
-            wus = await experiment.add(make_job, [xm_slurm.JobArgs(args=j) for j in jobs])
+                async def job(wu, args):
+                    await wu.add(xm.Job(executable=executable, executor=executor, args=xm.merge_args(fixed, args)))
+                return job
+
+            wus = []
+            for fixed, sweep in arrays:
+                wus += await experiment.add(make_job(fixed), [xm_slurm.JobArgs(args=t) for t in sweep])
             print(f"experiment_id {experiment.experiment_id}: submitted {len(wus)} work units to {a.cluster}")
             statuses = await asyncio.gather(*[wu.get_status() for wu in wus[:3]])
             for wu, s in zip(wus, statuses):

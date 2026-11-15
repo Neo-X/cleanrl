@@ -33,7 +33,9 @@ for step, g in df.groupby("step"):
     ref = g.groupby("collect_seed")[["ref/online_det", "ref/topk_D"]].first()
     per = lambda a: g[g.algo == a].groupby("collect_seed")["eval/return"].mean()
     lines.append(f"| {step/1e6:g}M | {ms(ref['ref/online_det'])} | {ms(ref['ref/topk_D'])} | {ms(per('dt'))} | {ms(per('cql'))} |")
-lines += ["", "Mean ± std over 5 collect seeds; each seed's value is the mean over 3 offline seeds. "
+n_off = df.offline_seed.nunique()
+lines += ["", "Mean ± std over 5 collect seeds; " + (f"each seed's value is the mean over {n_off} offline seeds. "
+          if n_off > 1 else "one offline seed per collect seed. ") +
           "Returns are single deterministic evaluation episodes (argmax policy, deterministic env)."]
 open(os.path.join(HERE, PREFIX + "table.md"), "w").write("\n".join(lines) + "\n")
 print("\n".join(lines), f"\n{len(df)} runs saved")

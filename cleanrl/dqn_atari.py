@@ -322,7 +322,7 @@ poetry run pip install "stable_baselines3==2.0.0a1" "gymnasium[atari,accept-rom-
         rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
         if global_step in dataset_steps:
             offline_dataset.save_replay_dataset(dataset_dir, global_step + 1, rb, timeout_tracker, q_network, args,
-                                                gap_stats._returns)
+                                                gap_stats._returns, frame_stacked=True)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
         obs = next_obs

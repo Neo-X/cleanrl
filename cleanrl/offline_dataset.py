@@ -51,7 +51,10 @@ def _time_ordered(rb, arr):
     return a.reshape((-1,) + a.shape[2:])
 
 
-def save_replay_dataset(save_dir, global_step, rb, timeout_tracker, model, args, online_returns, extra=None):
+def save_replay_dataset(save_dir, global_step, rb, timeout_tracker, model, args, online_returns, extra=None,
+                        frame_stacked=False):
+    """frame_stacked: Atari FrameStack observations (buffer, n_envs, stack, H, W); store only the newest frame.
+    Must be passed explicitly: MinAtar buffers are also 5-D (buffer, n_envs, H, W, C) but are not stacked."""
     os.makedirs(save_dir, exist_ok=True)
     T = rb.buffer_size if rb.full else rb.pos
     terminals = _time_ordered(rb, rb.dones).astype(bool)
@@ -62,7 +65,6 @@ def save_replay_dataset(save_dir, global_step, rb, timeout_tracker, model, args,
         end = (e + 1) * T - 1
         if not terminals[end]:
             timeouts[end] = True
-    frame_stacked = rb.observations.ndim == 5  # (buffer, n_envs, stack, H, W)
     if frame_stacked:
         obs_data = dict(frames=_time_ordered(rb, rb.observations[:, :, -1]),
                         frame_stack=np.array(rb.observations.shape[2]))

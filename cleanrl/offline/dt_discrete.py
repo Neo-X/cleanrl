@@ -53,7 +53,7 @@ class Args:
     eval_freq: int = 10_000
     eval_episodes: int = 10
     eval_seed: int = 10_000
-    eval_max_steps: int = 10_000
+    eval_max_steps: int = 1000
     top_k: float = 0.05
     """k for the V^{pi*_D} reference (top-k% of complete episodes in D)"""
     env_id: str = ""

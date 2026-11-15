@@ -261,6 +261,7 @@ if __name__ == "__main__":
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
     return_ = 0
+    next_episode_plot_step = 0
     for global_step in range(args.total_timesteps):
         # ALGO LOGIC: put action logic here
         epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
@@ -288,7 +289,10 @@ if __name__ == "__main__":
             for info in infos["final_info"]:
                 if info and "episode" in info:
                     gap_stats.add(info["episode"])
-                    if global_step % args.plot_freq == 0:
+                    # first episode end at or after each plot_freq boundary: MinAtar episodes can all end on
+                    # odd steps (Breakout lengths are even), so `global_step % plot_freq == 0` may never hold
+                    if global_step >= next_episode_plot_step:
+                        next_episode_plot_step = (global_step // args.plot_freq + 1) * args.plot_freq
                         print(f"global_step={global_step}, episodic_return={info['episode']['return']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["return"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["length"], global_step)

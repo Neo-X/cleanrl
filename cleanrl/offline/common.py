@@ -38,7 +38,42 @@ def load_dataset(path):
     data["meta"] = ckpt["meta"] if ckpt else {}
     data["online_state_dict"] = ckpt["state_dict"] if ckpt else None
     data["trajectories"] = split_trajectories(data)
+    if is_atari(data):
+        data["stack_index"] = frame_stack_index(data)
     return data
+
+
+def is_atari(data):
+    """Atari datasets store only the newest frame of each FrameStack observation (offline_dataset.py)."""
+    return "frames" in data
+
+
+def frame_stack_index(data):
+    """(N, frame_stack) indices into data["frames"] that rebuild each step's stacked observation.
+    FrameStack fills the stack with the reset frame, so indices are clamped to the episode start."""
+    N, k = len(data["frames"]), int(data["frame_stack"])
+    start = np.zeros(N, np.int64)
+    for t in data["trajectories"]:
+        start[t["start"]:t["end"]] = t["start"]
+    idx = np.arange(N)[:, None] + np.arange(-k + 1, 1)[None, :]
+    return np.maximum(idx, start[:, None])
+
+
+def observations(data, idx):
+    """Observations at transition indices `idx` (numpy array): flat MinAtar grids or uint8 Atari stacks."""
+    if is_atari(data):
+        return data["frames"][data["stack_index"][idx]]
+    return data["observations"][idx]
+
+
+def next_observations(data, idx):
+    """Next observations at `idx`. Atari: the following step's frame pushed onto the stack (SB3's
+    memory-optimised buffer stores next_obs in the next row; terminal next states are masked)."""
+    if is_atari(data):
+        nxt = np.minimum(idx + 1, len(data["frames"]) - 1)
+        si = np.concatenate([data["stack_index"][idx][:, 1:], nxt[:, None]], axis=1)
+        return data["frames"][si]
+    return data["next_observations"][idx]
 
 
 def split_trajectories(data):
@@ -92,8 +127,11 @@ class TransitionSampler:
 
     def __init__(self, data, device, top_frac=0.0, top_prob=0.0):
         self.device = device
-        self.obs = torch.as_tensor(data["observations"]).to(device)
-        self.next_obs = torch.as_tensor(data["next_observations"]).to(device)
+        self.data = data
+        self.atari = is_atari(data)
+        if not self.atari:  # small MinAtar buffers live on the device; Atari stacks are gathered per batch
+            self.obs = torch.as_tensor(data["observations"]).to(device)
+            self.next_obs = torch.as_tensor(data["next_observations"]).to(device)
         self.actions = torch.as_tensor(data["actions"]).long().to(device)
         self.rewards = torch.as_tensor(data["rewards"]).float().to(device)
         self.terminals = torch.as_tensor(data["terminals"]).float().to(device)
@@ -110,9 +148,13 @@ class TransitionSampler:
         if self.top_idx is not None:
             use_top = np.random.rand(batch_size) < self.top_prob
             idx[use_top] = self.top_idx[np.random.randint(0, len(self.top_idx), size=use_top.sum())]
+        if self.atari:
+            s = torch.as_tensor(observations(self.data, idx), device=self.device).float()
+            s2 = torch.as_tensor(next_observations(self.data, idx), device=self.device).float()
         idx = torch.as_tensor(idx, device=self.device)
-        return (self.obs[idx].float(), self.actions[idx], self.rewards[idx],
-                self.next_obs[idx].float(), self.terminals[idx])
+        if not self.atari:
+            s, s2 = self.obs[idx].float(), self.next_obs[idx].float()
+        return s, self.actions[idx], self.rewards[idx], s2, self.terminals[idx]
 
 
 def top_trajectory_indices(data, frac):
@@ -142,6 +184,25 @@ class QNetwork(nn.Module):
         return self.network(x)
 
 
+class AtariQNetwork(nn.Module):
+    """Same architecture (and state_dict keys) as cleanrl/dqn_atari.py:QNetwork (Nature CNN)."""
+
+    def __init__(self, obs_shape, n_actions, **_):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Conv2d(obs_shape[0], 32, 8, stride=4), nn.ReLU(),
+            nn.Conv2d(32, 64, 4, stride=2), nn.ReLU(),
+            nn.Conv2d(64, 64, 3, stride=1), nn.ReLU(),
+            nn.Flatten(), nn.Linear(3136, 512), nn.ReLU(), nn.Linear(512, n_actions))
+
+    def forward(self, x):
+        return self.network(x / 255.0)
+
+
+def q_network(env_id, obs_shape, n_actions, **kwargs):
+    return (AtariQNetwork if is_atari_env(env_id) else QNetwork)(obs_shape, n_actions, **kwargs)
+
+
 def online_net_kwargs(data):
     a = data["meta"].get("args", {})
     return dict(num_layers=a.get("num_layers", 1), num_units=a.get("num_units", 120),
@@ -153,9 +214,24 @@ def env_id_of(data, override=""):
     return override or data["meta"]["args"]["env_id"]
 
 
+def is_atari_env(env_id):
+    return env_id.startswith("ALE/") or "NoFrameskip" in env_id
+
+
 def make_env(env_id):
-    # Must match the data-generating env in cleanrl/dqn.py:make_env (plain gym.make).
-    return gym.make(env_id)
+    """Must match the data-generating env: cleanrl/dqn.py:make_env (plain gym.make) for MinAtar,
+    cleanrl/dqn_atari.py:make_env (default wrappers, deterministic ALE) for Atari."""
+    if not is_atari_env(env_id):
+        return gym.make(env_id)
+    from stable_baselines3.common.atari_wrappers import ClipRewardEnv, FireResetEnv, MaxAndSkipEnv
+    env = gym.make(env_id, repeat_action_probability=0.0, frameskip=1, full_action_space=False)
+    env = MaxAndSkipEnv(env, skip=4)
+    if "FIRE" in env.unwrapped.get_action_meanings():
+        env = FireResetEnv(env)
+    env = ClipRewardEnv(env)  # returns are in clipped reward units, like the dataset and gap stats
+    env = gym.wrappers.ResizeObservation(env, (84, 84))
+    env = gym.wrappers.GrayScaleObservation(env)
+    return gym.wrappers.FrameStack(env, 4)
 
 
 @torch.no_grad()
@@ -184,7 +260,7 @@ def evaluate(act_fn, env_id, n_episodes, seed, max_steps=10_000, reset_fn=None):
 
 def q_act_fn(net, device):
     def act(obs):
-        x = torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
+        x = torch.as_tensor(np.asarray(obs), dtype=torch.float32, device=device).unsqueeze(0)
         return int(net(x).argmax(1).item())
     return act
 
@@ -195,7 +271,7 @@ def online_checkpoint_return(data, env_id, n_episodes, seed, max_steps, device):
     if data["online_state_dict"] is None:
         return float("nan")
     env = make_env(env_id)
-    net = QNetwork(env.observation_space.shape, env.action_space.n, **online_net_kwargs(data)).to(device)
+    net = q_network(env_id, env.observation_space.shape, env.action_space.n, **online_net_kwargs(data)).to(device)
     net.load_state_dict(data["online_state_dict"])
     net.eval()
     return float(evaluate(q_act_fn(net, device), env_id, n_episodes, seed, max_steps).mean())

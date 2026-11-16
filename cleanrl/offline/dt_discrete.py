@@ -35,7 +35,8 @@ class Args:
     embedding_dim: int = 128
     num_layers: int = 3
     num_heads: int = 1
-    seq_len: int = 20
+    seq_len: int = 1
+    """timesteps of context; 1 = current state only, the same input as the flat DQN policy"""
     episode_len: int = 0
     """max timestep embedding; 0 = longest complete episode in D"""
     attention_dropout: float = 0.1

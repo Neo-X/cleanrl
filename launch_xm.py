@@ -21,6 +21,7 @@ Run with the xm-slurm environment:
     ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster narval --env_ids MinAtar/SpaceInvaders-v1
     ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster mila --exp_name dqn_rnd --steps 10000000
     ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster mila --env_ids MinAtar/SpaceInvaders-v0 --collect_id 38
+    ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster mila --env_ids ALE/Asterix-v5 --exp_name dqn_atari --collect_id 50 --steps 12500000 25000000 --variants dt_atari cql_atari
 
     # print the jobs without building or submitting anything
     ../xm-slurm/.venv/bin/python launch_xm.py collect --cluster mila --dry_run
@@ -64,6 +65,9 @@ OFFLINE_VARIANTS = [
     ("dqn_cont", "cleanrl/offline/cql_discrete.py", ["--cql_alpha", "0.0", "--init_from_checkpoint"]),
     ("dqn_cont_top10", "cleanrl/offline/cql_discrete.py",
      ["--cql_alpha", "0.0", "--init_from_checkpoint", "--top_frac", "0.1", "--top_prob", "0.5"]),
+    # Atari datasets (cleanrl/dqn_atari.py): Nature-CNN networks and dqn_atari.py settings, on a GPU
+    ("dt_atari", "cleanrl/offline/dt_atari.py", []),
+    ("cql_atari", "cleanrl/offline/cql_atari.py", ["--cql_alpha", "1.0"]),
 ]
 
 
@@ -107,6 +111,15 @@ def offline_jobs(a):
         datasets += remote_datasets(a, env_id)
     if a.steps:
         datasets = [d for d in datasets if any(d.endswith(f"step_{s}.npz") for s in a.steps)]
+    # one run per seed: a seed may have several runs (e.g. a job restarted from step 0); keep the earliest
+    # run (smallest start timestamp) for each (env, seed, step), so every checkpoint has one dataset per seed
+    keep = {}
+    for d in sorted(datasets, key=lambda d: int(os.path.basename(os.path.dirname(d)).split("__")[-1])):
+        run = os.path.basename(os.path.dirname(d)).split("__")  # <env>__<exp_name>__<id>__<seed>__<time>
+        keep.setdefault((os.path.dirname(os.path.dirname(d)), run[0], run[-2], os.path.basename(d)), d)
+    if len(keep) < len(datasets):
+        print(f"Keeping one run per seed: dropped {len(datasets) - len(keep)} datasets from repeated runs")
+    datasets = sorted(keep.values())
     print(f"Found {len(datasets)} datasets on {a.cluster}")
     variants = [v for v in OFFLINE_VARIANTS if not a.variants or v[0] in a.variants]
     sweep = [{"dataset": ds, "seed": seed} for ds in datasets for seed in a.seeds]
@@ -122,7 +135,7 @@ def parse_args():
     p.add_argument("--cluster", default="mila", choices=list(CLUSTERS))
     p.add_argument("--env_ids", nargs="+", default=["MinAtar/SpaceInvaders-v1"])
     p.add_argument("--seeds", type=int, nargs="+", default=None,
-                   help="default: 1-5 for collect, 1-3 for offline")
+                   help="default: 1-5 for online/collect, 1 for offline (one offline seed per collect seed)")
     p.add_argument("--total_timesteps", type=int, default=10_000_000)
     p.add_argument("--algo", default="dqn", choices=["dqn", "dqn_cql", "dqn_atari", "dqn_atari_cql"],
                    help="online/collect: learner (dqn_cql = dqn.py + CQL(H) term, see --cql_alpha passthrough)")
@@ -139,8 +152,8 @@ def parse_args():
     p.add_argument("--variants", nargs="+", default=None, choices=[v[0] for v in OFFLINE_VARIANTS],
                    help="offline: subset of interventions (default: all)")
     p.add_argument("--profile", choices=list(PROFILES), default=None,
-                   help="resources: gpu = launchGPU.sh (default for collect on non-MinAtar envs, e.g. Atari), "
-                        "cpu = launch.sh (default for MinAtar and for offline)")
+                   help="resources: gpu = launchGPU.sh (default for non-MinAtar envs, e.g. Atari), "
+                        "cpu = launch.sh (default for MinAtar)")
     p.add_argument("--hours", type=float, default=None, help="override the profile's time limit")
     p.add_argument("--cpus", type=int, default=None, help="override the profile's CPUs")
     p.add_argument("--ram_gib", type=int, default=None, help="override the profile's RAM")
@@ -150,13 +163,15 @@ def parse_args():
     if a.exp_name is None:
         a.exp_name = a.algo + ("_rnd" if a.rnd_scale > 0 else "")
     if a.seeds is None:
-        a.seeds = [1, 2, 3] if a.stage == "offline" else [1, 2, 3, 4, 5]
+        a.seeds = [1] if a.stage == "offline" else [1, 2, 3, 4, 5]  # offline: one seed per collect seed
     if a.profile is None:
         minatar_only = all(e.startswith("MinAtar/") for e in a.env_ids)
-        a.profile = "gpu" if a.stage != "offline" and not minatar_only else "cpu"
+        a.profile = "cpu" if minatar_only else "gpu"
     prof = dict(PROFILES[a.profile])
     if a.stage != "offline" and a.profile == "cpu":
         prof["hours"] = 11 + 55 / 60  # launch.sh's limit; the non-RND MinAtar runs took ~1.5 h
+    if a.stage == "offline" and a.profile == "gpu":
+        prof["hours"] = 2 + 59 / 60  # Atari offline DT/CQL on fixed datasets (~1.5-2.5 h estimated)
     a.gpus = prof["gpus"]
     a.cpus = a.cpus or prof["cpus"]
     a.ram_gib = a.ram_gib or prof["ram_gib"]

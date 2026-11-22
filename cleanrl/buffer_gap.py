@@ -157,6 +157,8 @@ class BufferGapV2():
 
         self._best_traj = []
         self._best_traj_r = []
+        ## Own RNG for epsilon-greedy evaluation, so it never touches the RNGs training uses
+        self._eval_rng = np.random.default_rng(None if args is None else getattr(args, "seed", 0) + 7919)
 
 
     def add(self, info):
@@ -214,12 +216,32 @@ class BufferGapV2():
             ## CHeck that the returns is not None
             if returns is not None:
                 writer.add_scalar("charts/deterministic_returns", np.mean(returns), step)
+            ## Same seeded rollout with the current stochastic policy: the difference to deterministic_returns is
+            ## the cost of the policy's own randomness (the env is the same)
+            returns = self.eval_deterministic(stochastic=True)
+            if returns is not None:
+                writer.add_scalar("charts/stochastic_policy_returns", np.mean(returns), step)
             returns = self.eval_deterministic(best=True)
             if returns is not None:
                 writer.add_scalar("charts/replay_best_returns", np.mean(returns), step)
             returns = self.eval_stochastic()
             if returns is not None:
                 writer.add_scalar("charts/replay_top_k_returns_stochastic", np.mean(returns), step)
+            ## Spread of the returns of the current (fixed) stochastic policy over independent rollouts
+            n_spread = getattr(self._args, "eval_std_samples", 0)
+            if n_spread > 0 and hasattr(self._policy, "get_action_and_value"):
+                spread = self.eval_fixed_policy(n_spread)
+                top = np.sort(spread)[-max(int(self._top_buffer_percet * len(spread)), 1):]
+                writer.add_scalar("charts/fixed_policy_return_mean", np.mean(spread), step)
+                writer.add_scalar("charts/fixed_policy_return_std", np.std(spread, ddof=1), step)
+                writer.add_scalar("charts/fixed_policy_return_min", np.min(spread), step)
+                writer.add_scalar("charts/fixed_policy_return_max", np.max(spread), step)
+                writer.add_scalar("charts/fixed_policy_top_k_gap", np.mean(top) - np.mean(spread), step)
+                raw = self._fixed_policy_raw_returns
+                if len(raw) > 1:
+                    writer.add_scalar("charts/fixed_policy_raw_return_mean", np.mean(raw), step)
+                    writer.add_scalar("charts/fixed_policy_raw_return_std", np.std(raw, ddof=1), step)
+                print(f"Fixed policy return over {len(spread)} rollouts: {np.mean(spread):.2f} +- {np.std(spread, ddof=1):.2f} at step {step}")
             print(f"Stochastic Eval Return: {np.mean(returns)} at step {step}")
 
             if len(self._returns) > 1:
@@ -228,13 +250,38 @@ class BufferGapV2():
                 writer.add_scalar("charts/alpha_star", k_result["alpha_star"], step)
 
  
-    def eval_deterministic(self, best=False) -> np.ndarray:
+    def _stochastic_action(self, obs: torch.Tensor) -> np.ndarray:
         """
-        Evaluate the policy deterministically
+        Action of the current stochastic policy: sampled from the policy for PPO (get_action_and_value) and
+        SAC (get_action); epsilon-greedy around argmax Q with epsilon = args.end_e for DQN/PQN.
         """
+        with torch.no_grad():
+            if hasattr(self._policy, "get_action_and_value"):
+                return self._policy.get_action_and_value(obs)[0].cpu().numpy()
+            if hasattr(self._policy, "get_action"):
+                return self._policy.get_action(obs)[0].cpu().numpy()
+            actions = self._policy.get_action_deterministic(obs).cpu().numpy()
+        eps = getattr(self._args, "end_e", 0.05)
+        explore = self._eval_rng.random(len(actions)) < eps
+        random_actions = self._eval_rng.integers(self._envs.single_action_space.n, size=len(actions))
+        return np.where(explore, random_actions, actions)
+
+    def eval_deterministic(self, best=False, stochastic=False) -> np.ndarray:
         """
-        Evaluate the policy deterministically
+        Evaluate the policy from the seeded start state: the deterministic policy (default), the replay of
+        the best trajectory (best=True), or the current stochastic policy (stochastic=True).
+        The torch RNG state is restored afterwards so a stochastic rollout does not change training.
         """
+        cpu_state = torch.get_rng_state()
+        cuda_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        try:
+            return self._eval_seeded(best, stochastic)
+        finally:
+            torch.set_rng_state(cpu_state)
+            if cuda_state is not None:
+                torch.cuda.set_rng_state_all(cuda_state)
+
+    def _eval_seeded(self, best=False, stochastic=False) -> np.ndarray:
         obs, _ = self._envs.reset(seed=self._args.seed)
         # q_values = self._policy(torch.Tensor(obs).to(self._device))
         
@@ -250,7 +297,12 @@ class BufferGapV2():
             # returns_ = np.zeros(self._envs.num_envs, dtype=np.float32)
             for t in range(max_t):
                 
-                actions = [self._best_traj[t] for _ in range(self._envs.num_envs)] if best==True else self._policy.get_action_deterministic(torch.Tensor(obs).to(self._device)).cpu().numpy()
+                if best:
+                    actions = [self._best_traj[t] for _ in range(self._envs.num_envs)]
+                elif stochastic:
+                    actions = self._stochastic_action(torch.Tensor(obs).to(self._device))
+                else:
+                    actions = self._policy.get_action_deterministic(torch.Tensor(obs).to(self._device)).cpu().numpy()
 
                 obs, reward, terminations, truncations, infos = self._envs.step(actions)
                 return_ += reward[0]
@@ -262,6 +314,47 @@ class BufferGapV2():
         # assert(len(returns) == samples_), f"Returns length is {len(returns)} while expected {samples_}"
         return np.mean(returns)
 
+    def eval_fixed_policy(self, samples: int = 32) -> np.ndarray:
+        """
+        Roll out the current policy, held fixed, with sampled actions and return the `samples`
+        episode returns (one per rollout). Each env of the vector env samples its own actions, so
+        one pass gives num_envs independent rollouts; only the first episode of each env is kept.
+        Returns use the same key as BufferGapV2.add, so they are comparable to the gap estimators.
+        The torch RNG state is restored afterwards so the evaluation does not change training.
+        """
+        cpu_state = torch.get_rng_state()
+        cuda_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        max_t = self._envs.envs[0].spec.max_episode_steps
+        max_t = getattr(self._args, "eval_max_steps", 1000) if max_t==None else max_t
+        n = self._envs.num_envs
+        returns, raw = [], []
+        while len(returns) < samples:
+            obs, _ = self._envs.reset(seed=self._args.seed)
+            done = np.zeros(n, dtype=bool)
+            running = np.zeros(n, dtype=np.float64)
+            for t in range(max_t):
+                with torch.no_grad():
+                    actions = self._policy.get_action_and_value(torch.Tensor(obs).to(self._device))[0].cpu().numpy()
+                obs, reward, terminations, truncations, infos = self._envs.step(actions)
+                running += np.where(done, 0.0, reward)
+                if "final_info" in infos:
+                    for i, info in enumerate(infos["final_info"]):
+                        if info and "episode" in info and not done[i]:
+                            ep = info["episode"]
+                            returns.append(float(np.ravel(ep.get("return", ep.get("r")))[0]))
+                            if "r" in ep: raw.append(float(np.ravel(ep["r"])[0]))
+                            done[i] = True
+                if done.all():
+                    break
+            ## Episodes still alive at the cap count with their return so far (as in eval_deterministic)
+            returns.extend(running[~done].tolist())
+        torch.set_rng_state(cpu_state)
+        if cuda_state is not None:
+            torch.cuda.set_rng_state_all(cuda_state)
+        ## Unclipped game score of the finished episodes (Atari: gym's RecordEpisodeStatistics sits below ClipRewardEnv)
+        self._fixed_policy_raw_returns = np.array(raw)
+        return np.array(returns[:samples])
+
     def eval_stochastic(self) -> np.ndarray:
         """
         Evaluate the stored action trajectories to get an estimate of their returns
@@ -270,9 +363,11 @@ class BufferGapV2():
         returns = []
         samples_ = 5
         for j in range(samples_):
-            obs, _ = self._envs.reset(seed=self._args.seed)
+            ## No seed: the env keeps its own RNG running, so each replay sees fresh environment randomness
+            ## (a seeded reset would replay every plan in the same fixed world)
+            obs, _ = self._envs.reset()
             returns_ = np.zeros(self._envs.num_envs, dtype=np.float32)
-            plan = self._top_k_plans[np.random.randint(0, len(self._top_k_plans))][1] ## Sample a plan from the top k plans
+            plan =self._top_k_plans[np.random.randint(0, len(self._top_k_plans))][1] ## Sample a plan from the top k plans
             max_t = len(plan)
             for t in range(max_t):
                 

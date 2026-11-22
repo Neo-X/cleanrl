@@ -118,6 +118,8 @@ class Args:
     """The scale of the intrinsic reward"""
     old_wrappers: bool = False
     """Whether to use the old wrappers for the Atari environments"""
+    eval_std_samples: int = 0
+    """Rollouts of the fixed stochastic policy at each evaluation, to log the std of its return (0 = off)"""
 
 
 def make_env(env_id, idx, capture_video, run_name):

@@ -23,6 +23,12 @@ Run with the xm-slurm environment:
     ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster mila --env_ids MinAtar/SpaceInvaders-v0 --collect_id 38
     ../xm-slurm/.venv/bin/python launch_xm.py offline --cluster mila --env_ids ALE/Asterix-v5 --exp_name dqn_atari --collect_id 50 --steps 12500000 25000000 --variants dt_atari cql_atari
 
+    # PPO on Atari with and without RND, logging the return std of the fixed policy over 32 rollouts
+    ../xm-slurm/.venv/bin/python launch_xm.py online --cluster mila --algo ppo_atari --env_ids SpaceInvadersNoFrameskip-v4 MontezumaRevengeNoFrameskip-v4 --total_timesteps 25000000 --rnd_scale 0.2 --hours 24 --eval_std_samples 32
+
+    # SAC on MuJoCo v4: replay of the top-5% sequences from fresh start states, stochastic-policy rollouts
+    ../xm-slurm/.venv/bin/python launch_xm.py online --cluster mila --algo sac_continuous_action --env_ids Humanoid-v4 Walker2d-v4 HalfCheetah-v4 --total_timesteps 1000000 --hours 11.5
+
     # print the jobs without building or submitting anything
     ../xm-slurm/.venv/bin/python launch_xm.py collect --cluster mila --dry_run
 """
@@ -137,7 +143,7 @@ def parse_args():
     p.add_argument("--seeds", type=int, nargs="+", default=None,
                    help="default: 1-5 for online/collect, 1 for offline (one offline seed per collect seed)")
     p.add_argument("--total_timesteps", type=int, default=10_000_000)
-    p.add_argument("--algo", default="dqn", choices=["dqn", "dqn_cql", "dqn_atari", "dqn_atari_cql"],
+    p.add_argument("--algo", default="dqn", choices=["dqn", "dqn_cql", "dqn_atari", "dqn_atari_cql", "ppo_atari", "sac_continuous_action"],
                    help="online/collect: learner (dqn_cql = dqn.py + CQL(H) term, see --cql_alpha passthrough)")
     p.add_argument("--rnd_scale", type=float, default=0.0,
                    help="collect: train DQN with RND at this intrinsic reward scale (0 = off; paper uses 0.2)")
@@ -237,7 +243,7 @@ def main(_):
 
             def make_job(fixed):
                 # like launchGPU.sh's --job_id $SLURM_JOB_ID: tag runs/datasets with the experiment id
-                if fixed[0].startswith("cleanrl/dqn"):
+                if fixed[0].startswith(("cleanrl/dqn", "cleanrl/ppo_atari", "cleanrl/sac_continuous_action")):
                     fixed = [*fixed, "--job_id", str(experiment.experiment_id)]
 
                 async def job(wu, args):
